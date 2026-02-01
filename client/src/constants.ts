@@ -46,9 +46,13 @@ const COLORS = {
     GAP_COLOR: '#200000',
     // Player pawn colors
     PLAYER_1: '#d03030',
-    PLAYER_1_SELECTED: '#ff6b5a',
+    PLAYER_1_SELECTED: '#ff8b8a',
     PLAYER_2: '#3030d0',
     PLAYER_2_SELECTED: '#5dade2',
+    PLAYER_3: '#308030',
+    PLAYER_3_SELECTED: '#5de250',
+    PLAYER_4: '#a05000',
+    PLAYER_4_SELECTED: '#ffb85a',
     // Valid move highlight
     VALID_MOVE: '#008000',
     VALID_MOVE_ALPHA: 0.5,
@@ -88,12 +92,20 @@ export const ColorConfig = {
     PLAYER_1_SELECTED: parseColor(COLORS.PLAYER_1_SELECTED),
     PLAYER_2: parseColor(COLORS.PLAYER_2),
     PLAYER_2_SELECTED: parseColor(COLORS.PLAYER_2_SELECTED),
+    PLAYER_3: parseColor(COLORS.PLAYER_3),
+    PLAYER_3_SELECTED: parseColor(COLORS.PLAYER_3_SELECTED),
+    PLAYER_4: parseColor(COLORS.PLAYER_4),
+    PLAYER_4_SELECTED: parseColor(COLORS.PLAYER_4_SELECTED),
     VALID_MOVE: parseColor(COLORS.VALID_MOVE),
     VALID_MOVE_ALPHA: COLORS.VALID_MOVE_ALPHA,
     UI_TEXT: parseColor(COLORS.UI_TEXT),
     UI_TEXT_SHADOW: parseColor(COLORS.UI_TEXT_SHADOW),
     BUTTON_BG: parseColor(COLORS.BUTTON_BG),
     BUTTON_HOVER: parseColor(COLORS.BUTTON_HOVER),
+    PLAYER_3_STR: COLORS.PLAYER_3,
+    PLAYER_3_SELECTED_STR: COLORS.PLAYER_3_SELECTED,
+    PLAYER_4_STR: COLORS.PLAYER_4,
+    PLAYER_4_SELECTED_STR: COLORS.PLAYER_4_SELECTED,
 };
 
 /**
@@ -112,12 +124,6 @@ export const GraphicsConfig = {
     PAWN_SHADOW_OFFSET: 2,
     /** Shadow alpha for pawn. */
     PAWN_SHADOW_ALPHA: 0.3,
-    /** Offset for pawn inner highlight (from center). */
-    PAWN_HIGHLIGHT_OFFSET: 5,
-    /** Size multiplier for pawn inner highlight. */
-    PAWN_HIGHLIGHT_SIZE: 0.4,
-    /** Alpha for pawn inner highlight. */
-    PAWN_HIGHLIGHT_ALPHA: 0.3,
     /** Corner radius for squares. */
     SQUARE_CORNER_RADIUS: 10,
     /** Shadow offset for 3D effect on squares. */
@@ -153,11 +159,24 @@ export const UIConfig = {
 };
 
 /**
- * Starting positions for each player.
+ * Starting positions for 2-player mode.
+ * Player 1 starts at bottom, Player 2 starts at top.
  */
-export const StartPositions = {
-    /** Player 1 starts at bottom center. */
-    PLAYER_1: { row: 8, col: 4 },
-    /** Player 2 starts at top center. */
-    PLAYER_2: { row: 0, col: 4 },
+export const StartPositions2P = {
+    PLAYER_1: { row: 8, col: 4 },  // Bottom center
+    PLAYER_2: { row: 0, col: 4 },  // Top center
+};
+
+/**
+ * Starting positions for 4-player mode (clockwise from bottom).
+ * Player 1: bottom → wants top row
+ * Player 2: left → wants right column
+ * Player 3: top → wants bottom row
+ * Player 4: right → wants left column
+ */
+export const StartPositions4P = {
+    PLAYER_1: { row: 8, col: 4 },  // Bottom center
+    PLAYER_2: { row: 4, col: 0 },  // Left center
+    PLAYER_3: { row: 0, col: 4 },  // Top center
+    PLAYER_4: { row: 4, col: 8 },  // Right center
 };

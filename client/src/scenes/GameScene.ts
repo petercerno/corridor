@@ -83,11 +83,11 @@ export default class GameScene extends Phaser.Scene {
         );
         this.statusText.setOrigin(0.5, 0.5);
 
-        // Add restart button
-        const restartBtn = this.add.text(
+        // Add reset button for 4 players (rightmost)
+        const reset4Btn = this.add.text(
             BoardConfig.CANVAS_WIDTH - BoardConfig.MARGIN,
             BoardConfig.MARGIN / 2 + UIConfig.UI_VERTICAL_OFFSET,
-            '⏻',
+            '⏻₄',
             {
                 fontSize: UIConfig.BUTTON_FONT_SIZE,
                 fontFamily: UIConfig.FONT_FAMILY,
@@ -96,11 +96,30 @@ export default class GameScene extends Phaser.Scene {
                 padding: { x: UIConfig.BUTTON_PADDING_X, y: UIConfig.BUTTON_PADDING_Y },
             }
         );
-        restartBtn.setOrigin(1, 0.5);
-        restartBtn.setInteractive({ useHandCursor: true });
-        restartBtn.on('pointerdown', () => this.resetGame());
-        restartBtn.on('pointerover', () => restartBtn.setStyle({ backgroundColor: ColorConfig.BUTTON_HOVER_STR }));
-        restartBtn.on('pointerout', () => restartBtn.setStyle({ backgroundColor: ColorConfig.BUTTON_BG_STR }));
+        reset4Btn.setOrigin(1, 0.5);
+        reset4Btn.setInteractive({ useHandCursor: true });
+        reset4Btn.on('pointerdown', () => this.resetGame(4));
+        reset4Btn.on('pointerover', () => reset4Btn.setStyle({ backgroundColor: ColorConfig.BUTTON_HOVER_STR }));
+        reset4Btn.on('pointerout', () => reset4Btn.setStyle({ backgroundColor: ColorConfig.BUTTON_BG_STR }));
+
+        // Add reset button for 2 players (left of 4-player button)
+        const reset2Btn = this.add.text(
+            reset4Btn.x - reset4Btn.width - UIConfig.BUTTON_PADDING_X,
+            BoardConfig.MARGIN / 2 + UIConfig.UI_VERTICAL_OFFSET,
+            '⏻₂',
+            {
+                fontSize: UIConfig.BUTTON_FONT_SIZE,
+                fontFamily: UIConfig.FONT_FAMILY,
+                color: ColorConfig.UI_TEXT_STR,
+                backgroundColor: ColorConfig.BUTTON_BG_STR,
+                padding: { x: UIConfig.BUTTON_PADDING_X, y: UIConfig.BUTTON_PADDING_Y },
+            }
+        );
+        reset2Btn.setOrigin(1, 0.5);
+        reset2Btn.setInteractive({ useHandCursor: true });
+        reset2Btn.on('pointerdown', () => this.resetGame(2));
+        reset2Btn.on('pointerover', () => reset2Btn.setStyle({ backgroundColor: ColorConfig.BUTTON_HOVER_STR }));
+        reset2Btn.on('pointerout', () => reset2Btn.setStyle({ backgroundColor: ColorConfig.BUTTON_BG_STR }));
     }
 
     /**
@@ -200,11 +219,7 @@ export default class GameScene extends Phaser.Scene {
         const center = this.gridToWorldCenter(position.row, position.col);
 
         // Get colors based on player and selection state
-        const fillColor = player === 1
-            ? (isSelected ? ColorConfig.PLAYER_1_SELECTED : ColorConfig.PLAYER_1)
-            : (isSelected ? ColorConfig.PLAYER_2_SELECTED : ColorConfig.PLAYER_2);
-
-        const strokeColor = player === 1 ? ColorConfig.PLAYER_1 : ColorConfig.PLAYER_2;
+        const { fill: fillColor, stroke: strokeColor } = this.getPlayerColors(player, isSelected);
         const strokeWidth = isSelected
             ? GraphicsConfig.PAWN_SELECTED_STROKE_WIDTH
             : GraphicsConfig.PAWN_STROKE_WIDTH;
@@ -227,9 +242,77 @@ export default class GameScene extends Phaser.Scene {
         g.lineStyle(strokeWidth, strokeColor);
         g.strokeCircle(center.x, center.y, GraphicsConfig.PAWN_RADIUS);
 
-        // Draw inner highlight
-        g.fillStyle(0xffffff, GraphicsConfig.PAWN_HIGHLIGHT_ALPHA);
-        g.fillCircle(center.x - GraphicsConfig.PAWN_HIGHLIGHT_OFFSET, center.y - GraphicsConfig.PAWN_HIGHLIGHT_OFFSET, GraphicsConfig.PAWN_RADIUS * GraphicsConfig.PAWN_HIGHLIGHT_SIZE);
+        // Draw direction triangle
+        this.drawDirectionTriangle(g, center.x, center.y, player);
+    }
+
+    /**
+     * Draws a small triangle inside the pawn pointing to the goal direction.
+     */
+    private drawDirectionTriangle(g: Phaser.GameObjects.Graphics, cx: number, cy: number, player: Player): void {
+        const size = GraphicsConfig.PAWN_RADIUS * 0.5;
+        const direction = this.getGoalDirection(player);
+
+        // Calculate triangle points based on direction
+        let points: { x: number; y: number }[];
+
+        switch (direction) {
+            case 'up':
+                points = [
+                    { x: cx, y: cy - size },           // tip
+                    { x: cx - size * 0.7, y: cy + size * 0.5 },  // bottom left
+                    { x: cx + size * 0.7, y: cy + size * 0.5 },  // bottom right
+                ];
+                break;
+            case 'down':
+                points = [
+                    { x: cx, y: cy + size },           // tip
+                    { x: cx - size * 0.7, y: cy - size * 0.5 },  // top left
+                    { x: cx + size * 0.7, y: cy - size * 0.5 },  // top right
+                ];
+                break;
+            case 'left':
+                points = [
+                    { x: cx - size, y: cy },           // tip
+                    { x: cx + size * 0.5, y: cy - size * 0.7 },  // top right
+                    { x: cx + size * 0.5, y: cy + size * 0.7 },  // bottom right
+                ];
+                break;
+            case 'right':
+                points = [
+                    { x: cx + size, y: cy },           // tip
+                    { x: cx - size * 0.5, y: cy - size * 0.7 },  // top left
+                    { x: cx - size * 0.5, y: cy + size * 0.7 },  // bottom left
+                ];
+                break;
+        }
+
+        // Draw the triangle
+        g.fillStyle(0xffffff, 0.5);
+        g.beginPath();
+        g.moveTo(points[0].x, points[0].y);
+        g.lineTo(points[1].x, points[1].y);
+        g.lineTo(points[2].x, points[2].y);
+        g.closePath();
+        g.fillPath();
+    }
+
+    /**
+     * Gets the goal direction for a player based on the current game mode.
+     */
+    private getGoalDirection(player: Player): 'up' | 'down' | 'left' | 'right' {
+        if (this.gameState.playerCount === 2) {
+            // 2-player mode: P1 goes up, P2 goes down
+            return player === 1 ? 'up' : 'down';
+        } else {
+            // 4-player mode (clockwise): P1 up, P2 right, P3 down, P4 left
+            switch (player) {
+                case 1: return 'up';
+                case 2: return 'right';
+                case 3: return 'down';
+                case 4: return 'left';
+            }
+        }
     }
 
     /**
@@ -400,16 +483,57 @@ export default class GameScene extends Phaser.Scene {
         if (this.gameState.winner) {
             this.statusText.setText(`🎉 Player ${this.gameState.winner} Wins!`);
         } else {
-            const playerColor = this.gameState.currentPlayer === 1 ? '🔴' : '🔵';
-            this.statusText.setText(`${playerColor} Player ${this.gameState.currentPlayer}`);
+            const playerEmoji = this.getPlayerEmoji(this.gameState.currentPlayer);
+            this.statusText.setText(`${playerEmoji} Player ${this.gameState.currentPlayer}`);
+        }
+    }
+
+    /**
+     * Gets the emoji for a player.
+     */
+    private getPlayerEmoji(player: Player): string {
+        switch (player) {
+            case 1: return '🔴';
+            case 2: return '🔵';
+            case 3: return '🟢';
+            case 4: return '🟠';
+        }
+    }
+
+    /**
+     * Gets the fill and stroke colors for a player.
+     */
+    private getPlayerColors(player: Player, isSelected: boolean): { fill: number; stroke: number } {
+        switch (player) {
+            case 1:
+                return {
+                    fill: isSelected ? ColorConfig.PLAYER_1_SELECTED : ColorConfig.PLAYER_1,
+                    stroke: ColorConfig.PLAYER_1
+                };
+            case 2:
+                return {
+                    fill: isSelected ? ColorConfig.PLAYER_2_SELECTED : ColorConfig.PLAYER_2,
+                    stroke: ColorConfig.PLAYER_2
+                };
+            case 3:
+                return {
+                    fill: isSelected ? ColorConfig.PLAYER_3_SELECTED : ColorConfig.PLAYER_3,
+                    stroke: ColorConfig.PLAYER_3
+                };
+            case 4:
+                return {
+                    fill: isSelected ? ColorConfig.PLAYER_4_SELECTED : ColorConfig.PLAYER_4,
+                    stroke: ColorConfig.PLAYER_4
+                };
         }
     }
 
     /**
      * Resets the game to initial state.
+     * @param playerCount Number of players (2 or 4).
      */
-    private resetGame(): void {
-        this.gameState = GameLogic.resetGame();
+    private resetGame(playerCount: 2 | 4): void {
+        this.gameState = GameLogic.resetGame(playerCount);
         this.deselectPawn();
         this.drawPawns();
         this.updateStatusText();

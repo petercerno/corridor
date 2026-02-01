@@ -1,20 +1,36 @@
-import type { GridPosition, Player, GameState, Pawn } from '../types';
-import { BoardConfig, StartPositions } from '../constants';
+import type { GridPosition, Player, PlayerCount, GameState, Pawn } from '../types';
+import { BoardConfig, StartPositions2P, StartPositions4P } from '../constants';
 
 /**
  * Pure game logic for Corridor (Quoridor).
  * Handles game state, move validation, and turn management.
+ * Supports both 2-player and 4-player modes.
  */
 export class GameLogic {
     /**
      * Creates the initial game state with pawns at starting positions.
+     * @param playerCount Number of players (2 or 4).
      */
-    static getInitialState(): GameState {
+    static getInitialState(playerCount: PlayerCount = 2): GameState {
+        let pawns: Pawn[];
+
+        if (playerCount === 2) {
+            pawns = [
+                { player: 1, position: { ...StartPositions2P.PLAYER_1 } },
+                { player: 2, position: { ...StartPositions2P.PLAYER_2 } },
+            ];
+        } else {
+            pawns = [
+                { player: 1, position: { ...StartPositions4P.PLAYER_1 } },
+                { player: 2, position: { ...StartPositions4P.PLAYER_2 } },
+                { player: 3, position: { ...StartPositions4P.PLAYER_3 } },
+                { player: 4, position: { ...StartPositions4P.PLAYER_4 } },
+            ];
+        }
+
         return {
-            pawns: [
-                { player: 1, position: { ...StartPositions.PLAYER_1 } },
-                { player: 2, position: { ...StartPositions.PLAYER_2 } },
-            ],
+            playerCount,
+            pawns,
             currentPlayer: 1,
             winner: null,
         };
@@ -23,8 +39,8 @@ export class GameLogic {
     /**
      * Gets the pawn for a specific player.
      */
-    static getPawn(state: GameState, player: Player): Pawn {
-        return state.pawns[player - 1];
+    static getPawn(state: GameState, player: Player): Pawn | undefined {
+        return state.pawns.find(p => p.player === player);
     }
 
     /**
@@ -54,6 +70,8 @@ export class GameLogic {
      */
     static getValidMoves(state: GameState): GridPosition[] {
         const pawn = this.getPawn(state, state.currentPlayer);
+        if (!pawn) return [];
+
         const { row, col } = pawn.position;
         const validMoves: GridPosition[] = [];
 
@@ -108,22 +126,26 @@ export class GameLogic {
             return null;
         }
 
-        // Create new state with updated pawn position
-        const newPawns: [Pawn, Pawn] = [
-            { ...state.pawns[0], position: { ...state.pawns[0].position } },
-            { ...state.pawns[1], position: { ...state.pawns[1].position } },
-        ];
+        // Create new pawns array with updated position
+        const newPawns = state.pawns.map(pawn => ({
+            ...pawn,
+            position: { ...pawn.position }
+        }));
 
         // Update the current player's pawn position
-        newPawns[state.currentPlayer - 1].position = { ...target };
+        const currentPawn = newPawns.find(p => p.player === state.currentPlayer);
+        if (currentPawn) {
+            currentPawn.position = { ...target };
+        }
 
         // Check for win condition
-        const winner = this.checkWinner(newPawns);
+        const winner = this.checkWinner(newPawns, state.playerCount);
 
-        // Switch to next player
-        const nextPlayer: Player = state.currentPlayer === 1 ? 2 : 1;
+        // Switch to next player (cycles through all players)
+        const nextPlayer = this.getNextPlayer(state.currentPlayer, state.playerCount);
 
         return {
+            playerCount: state.playerCount,
             pawns: newPawns,
             currentPlayer: winner ? state.currentPlayer : nextPlayer,
             winner,
@@ -131,25 +153,70 @@ export class GameLogic {
     }
 
     /**
-     * Checks if any player has won.
-     * Player 1 wins by reaching row 0, Player 2 wins by reaching row 8.
+     * Gets the next player in turn order.
      */
-    static checkWinner(pawns: [Pawn, Pawn]): Player | null {
-        // Player 1 wins by reaching the top row (row 0)
-        if (pawns[0].position.row === 0) {
-            return 1;
-        }
-        // Player 2 wins by reaching the bottom row (row 8)
-        if (pawns[1].position.row === BoardConfig.GRID_SIZE - 1) {
-            return 2;
+    static getNextPlayer(current: Player, playerCount: PlayerCount): Player {
+        const next = (current % playerCount) + 1;
+        return next as Player;
+    }
+
+    /**
+     * Checks if any player has won.
+     * 
+     * 2-player mode:
+     *   Player 1: starts bottom → wins by reaching top row (row 0)
+     *   Player 2: starts top → wins by reaching bottom row (row 8)
+     * 
+     * 4-player mode (clockwise from bottom):
+     *   Player 1: starts bottom → wins by reaching top row (row 0)
+     *   Player 2: starts left → wins by reaching right column (col 8)
+     *   Player 3: starts top → wins by reaching bottom row (row 8)
+     *   Player 4: starts right → wins by reaching left column (col 0)
+     */
+    static checkWinner(pawns: Pawn[], playerCount: PlayerCount): Player | null {
+        for (const pawn of pawns) {
+            if (pawn.player > playerCount) continue;
+
+            if (playerCount === 2) {
+                // 2-player mode
+                switch (pawn.player) {
+                    case 1:
+                        if (pawn.position.row === 0) return 1;
+                        break;
+                    case 2:
+                        if (pawn.position.row === BoardConfig.GRID_SIZE - 1) return 2;
+                        break;
+                }
+            } else {
+                // 4-player mode (clockwise)
+                switch (pawn.player) {
+                    case 1:
+                        // Player 1 (bottom) wins by reaching top row
+                        if (pawn.position.row === 0) return 1;
+                        break;
+                    case 2:
+                        // Player 2 (left) wins by reaching right column
+                        if (pawn.position.col === BoardConfig.GRID_SIZE - 1) return 2;
+                        break;
+                    case 3:
+                        // Player 3 (top) wins by reaching bottom row
+                        if (pawn.position.row === BoardConfig.GRID_SIZE - 1) return 3;
+                        break;
+                    case 4:
+                        // Player 4 (right) wins by reaching left column
+                        if (pawn.position.col === 0) return 4;
+                        break;
+                }
+            }
         }
         return null;
     }
 
     /**
      * Resets the game to initial state.
+     * @param playerCount Number of players (2 or 4).
      */
-    static resetGame(): GameState {
-        return this.getInitialState();
+    static resetGame(playerCount: PlayerCount = 2): GameState {
+        return this.getInitialState(playerCount);
     }
 }
