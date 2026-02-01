@@ -1,0 +1,22 @@
+{
+    "name": "corridor",
+    "private": true,
+    "version": "0.0.0",
+    "type": "module",
+    "engines": {
+        "node": ">=20.0.0"
+    },
+    "scripts": {
+        "dev": "vite client",
+        "build": "tsc -p client/tsconfig.json && vite build client",
+        "preview": "vite preview client"
+    },
+    "devDependencies": {
+        "@types/node": "^22.10.2",
+        "typescript": "~5.9.3",
+        "vite": "^7.2.4"
+    },
+    "dependencies": {
+        "phaser": "^3.90.0"
+    }
+}
