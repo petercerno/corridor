@@ -1,3 +1,4 @@
+import { samePosition } from '../types';
 import type { GapEdge, GridPosition, Player, PlayerCount, GameState, Wall } from '../types';
 import { BoardConfig, StartPositions2P, StartPositions4P, WallConfig } from '../constants';
 
@@ -58,9 +59,7 @@ export class GameLogic {
      * Checks if a position is occupied by any pawn.
      */
     static isOccupied(state: GameState, position: GridPosition): boolean {
-        return state.pawns.some(
-            pos => pos.row === position.row && pos.col === position.col
-        );
+        return state.pawns.some(pos => samePosition(pos, position));
     }
 
     // =========================================================================
@@ -176,10 +175,7 @@ export class GameLogic {
      * Checks if a move from current position to target is valid.
      */
     static isValidMove(state: GameState, target: GridPosition): boolean {
-        const validMoves = this.getValidMoves(state);
-        return validMoves.some(
-            move => move.row === target.row && move.col === target.col
-        );
+        return this.getValidMoves(state).some(move => samePosition(move, target));
     }
 
     /**
@@ -307,37 +303,35 @@ export class GameLogic {
         const dr = edge.to.row - edge.from.row;
         const dc = edge.to.col - edge.from.col;
 
+        // Determine wall orientation and axis from the edge direction.
+        // A gap with row change → horizontal wall; column change → vertical wall.
+        let orientation: 'horizontal' | 'vertical';
+        let anchor: number;   // fixed axis: wall anchor row (horizontal) or col (vertical)
+        let span: number;     // spanning axis: the cell coordinate along which the wall extends
+
         if (dr !== 0 && dc === 0) {
-            // Vertical movement between rows → horizontal wall
-            const wallRow = Math.min(edge.from.row, edge.to.row); // top cell row
-            const col = edge.from.col; // same column for both
-
-            // Wall can extend left (col-1) or right (col)
-            const options: Wall[] = [];
-            if (col - 1 >= 0) {
-                options.push({ row: wallRow, col: col - 1, orientation: 'horizontal' });
-            }
-            if (col + 1 < BoardConfig.GRID_SIZE) {
-                options.push({ row: wallRow, col: col, orientation: 'horizontal' });
-            }
-            return options;
+            orientation = 'horizontal';
+            anchor = Math.min(edge.from.row, edge.to.row);
+            span = edge.from.col;
         } else if (dc !== 0 && dr === 0) {
-            // Horizontal movement between cols → vertical wall
-            const wallCol = Math.min(edge.from.col, edge.to.col); // left cell col
-            const row = edge.from.row; // same row for both
-
-            // Wall can extend up (row-1) or down (row)
-            const options: Wall[] = [];
-            if (row - 1 >= 0) {
-                options.push({ row: row - 1, col: wallCol, orientation: 'vertical' });
-            }
-            if (row + 1 < BoardConfig.GRID_SIZE) {
-                options.push({ row: row, col: wallCol, orientation: 'vertical' });
-            }
-            return options;
+            orientation = 'vertical';
+            anchor = Math.min(edge.from.col, edge.to.col);
+            span = edge.from.row;
+        } else {
+            return [];
         }
 
-        return [];
+        // Wall can extend in either direction along the spanning axis.
+        const options: Wall[] = [];
+        const makeWall = (s: number): Wall =>
+            orientation === 'horizontal'
+                ? { row: anchor, col: s, orientation }
+                : { row: s, col: anchor, orientation };
+
+        if (span - 1 >= 0) options.push(makeWall(span - 1));
+        if (span + 1 < BoardConfig.GRID_SIZE) options.push(makeWall(span));
+
+        return options;
     }
 
     // =========================================================================

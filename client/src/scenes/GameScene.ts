@@ -1,15 +1,9 @@
 import Phaser from 'phaser';
-import { BoardConfig, ColorConfig, GraphicsConfig, UIConfig } from '../constants';
+import { BoardConfig, ColorConfig, GraphicsConfig, PlayerConfig, UIConfig } from '../constants';
 import { GameLogic } from '../logic/GameLogic';
-import type { GapEdge, GridPosition, GameState, Player, Wall } from '../types';
-
-/**
- * Represents a position in world (pixel) coordinates.
- */
-interface WorldPosition {
-    x: number;
-    y: number;
-}
+import { gridToWorld, gridToWorldCenter, worldToGap, worldToGrid } from '../logic/coordinates';
+import { samePosition, sameGapEdge } from '../types';
+import type { Direction, GapEdge, GridPosition, GameState, Player, Wall, WorldPosition } from '../types';
 
 /**
  * Main game scene for Corridor.
@@ -42,6 +36,9 @@ export default class GameScene extends Phaser.Scene {
 
     /** Status text showing current player. */
     private statusText!: Phaser.GameObjects.Text;
+
+    /** Stack of previous game states for undo (cleared on game reset). */
+    private moveHistory: GameState[] = [];
 
     // --- Wall placement state ---
 
@@ -109,19 +106,25 @@ export default class GameScene extends Phaser.Scene {
         );
         this.statusText.setOrigin(0.5, 0.5);
 
-        // Add reset buttons (4-player rightmost, 2-player to its left)
-        const reset4Btn = this.createResetButton(
-            BoardConfig.CANVAS_WIDTH - BoardConfig.MARGIN, '⏻₄', 4
+        // Add buttons right-to-left: 4P reset, 2P reset, undo
+        const reset4Btn = this.createButton(
+            BoardConfig.CANVAS_WIDTH - BoardConfig.MARGIN,
+            '⏻₄', () => this.resetGame(4)
         );
-        this.createResetButton(
-            reset4Btn.x - reset4Btn.width - UIConfig.BUTTON_PADDING_X, '⏻₂', 2
+        const reset2Btn = this.createButton(
+            reset4Btn.x - reset4Btn.width - UIConfig.BUTTON_PADDING_X,
+            '⏻₂', () => this.resetGame(2)
+        );
+        this.createButton(
+            reset2Btn.x - reset2Btn.width - UIConfig.BUTTON_PADDING_X,
+            '↺', () => this.undoMove()
         );
     }
 
     /**
-     * Creates a reset button at the given x position.
+     * Creates a styled button at the given x position.
      */
-    private createResetButton(x: number, label: string, playerCount: 2 | 4): Phaser.GameObjects.Text {
+    private createButton(x: number, label: string, onClick: () => void): Phaser.GameObjects.Text {
         const btn = this.add.text(
             x,
             BoardConfig.MARGIN / 2 + UIConfig.UI_VERTICAL_OFFSET,
@@ -136,7 +139,7 @@ export default class GameScene extends Phaser.Scene {
         );
         btn.setOrigin(1, 0.5);
         btn.setInteractive({ useHandCursor: true });
-        btn.on('pointerdown', () => this.resetGame(playerCount));
+        btn.on('pointerdown', onClick);
         btn.on('pointerover', () => btn.setStyle({ backgroundColor: ColorConfig.BUTTON_HOVER_STR }));
         btn.on('pointerout', () => btn.setStyle({ backgroundColor: ColorConfig.BUTTON_BG_STR }));
         return btn;
@@ -184,7 +187,7 @@ export default class GameScene extends Phaser.Scene {
      */
     private drawSquare(pos: GridPosition): void {
         const g = this.boardGraphics;
-        const { x, y } = this.gridToWorld(pos);
+        const { x, y } = gridToWorld(pos);
         const size = BoardConfig.CELL_SIZE;
         const radius = GraphicsConfig.SQUARE_CORNER_RADIUS;
         const shadowOffset = GraphicsConfig.SQUARE_SHADOW_OFFSET;
@@ -241,8 +244,8 @@ export default class GameScene extends Phaser.Scene {
         const cornerRadius = GraphicsConfig.WALL_CORNER_RADIUS;
 
         // Top-left corners of the anchor cell and the diagonally opposite cell
-        const topLeft0 = this.gridToWorld({ row: wall.row, col: wall.col });
-        const topLeft1 = this.gridToWorld({ row: wall.row + 1, col: wall.col + 1 });
+        const topLeft0 = gridToWorld({ row: wall.row, col: wall.col });
+        const topLeft1 = gridToWorld({ row: wall.row + 1, col: wall.col + 1 });
 
         let x: number, y: number, w: number, h: number;
 
@@ -321,7 +324,7 @@ export default class GameScene extends Phaser.Scene {
      */
     private drawPawn(position: GridPosition, player: Player, isSelected: boolean): void {
         const g = this.pawnGraphics;
-        const center = this.gridToWorldCenter(position);
+        const center = gridToWorldCenter(position);
 
         // Get colors based on player and selection state
         const { fill: fillColor, stroke: strokeColor } = this.getPlayerColors(player, isSelected);
@@ -351,48 +354,38 @@ export default class GameScene extends Phaser.Scene {
         this.drawDirectionTriangle(g, center.x, center.y, player);
     }
 
+    /** Angle offsets for each direction (radians, 0 = up). */
+    private static readonly DIRECTION_ANGLES: Record<Direction, number> = {
+        up: 0,
+        right: Math.PI / 2,
+        down: Math.PI,
+        left: -Math.PI / 2,
+    };
+
     /**
      * Draws a small triangle inside the pawn pointing to the goal direction.
+     * Uses a rotation-based approach: the base triangle points up (angle 0),
+     * then is rotated to match the player's goal direction.
      */
     private drawDirectionTriangle(g: Phaser.GameObjects.Graphics, cx: number, cy: number, player: Player): void {
         const size = GraphicsConfig.PAWN_RADIUS * 0.5;
-        const direction = this.getGoalDirection(player);
+        const angle = GameScene.DIRECTION_ANGLES[this.getGoalDirection(player)];
 
-        // Calculate triangle points based on direction
-        let points: WorldPosition[];
+        // Base triangle pointing up: tip, bottom-left, bottom-right
+        const basePoints = [
+            { x: 0, y: -size },
+            { x: -size * 0.7, y: size * 0.5 },
+            { x: size * 0.7, y: size * 0.5 },
+        ];
 
-        switch (direction) {
-            case 'up':
-                points = [
-                    { x: cx, y: cy - size },           // tip
-                    { x: cx - size * 0.7, y: cy + size * 0.5 },  // bottom left
-                    { x: cx + size * 0.7, y: cy + size * 0.5 },  // bottom right
-                ];
-                break;
-            case 'down':
-                points = [
-                    { x: cx, y: cy + size },           // tip
-                    { x: cx - size * 0.7, y: cy - size * 0.5 },  // top left
-                    { x: cx + size * 0.7, y: cy - size * 0.5 },  // top right
-                ];
-                break;
-            case 'left':
-                points = [
-                    { x: cx - size, y: cy },           // tip
-                    { x: cx + size * 0.5, y: cy - size * 0.7 },  // top right
-                    { x: cx + size * 0.5, y: cy + size * 0.7 },  // bottom right
-                ];
-                break;
-            case 'right':
-                points = [
-                    { x: cx + size, y: cy },           // tip
-                    { x: cx - size * 0.5, y: cy - size * 0.7 },  // top left
-                    { x: cx - size * 0.5, y: cy + size * 0.7 },  // bottom left
-                ];
-                break;
-        }
+        // Rotate each point and translate to center
+        const cos = Math.cos(angle);
+        const sin = Math.sin(angle);
+        const points = basePoints.map(p => ({
+            x: cx + p.x * cos - p.y * sin,
+            y: cy + p.x * sin + p.y * cos,
+        }));
 
-        // Draw the triangle
         g.fillStyle(0xffffff, 0.5);
         g.beginPath();
         g.moveTo(points[0].x, points[0].y);
@@ -402,22 +395,20 @@ export default class GameScene extends Phaser.Scene {
         g.fillPath();
     }
 
+    /** Goal directions per player in 4-player mode (also works for 2P subset). */
+    private static readonly GOAL_DIRECTIONS: Direction[] = ['up', 'right', 'down', 'left'];
+
     /**
      * Gets the goal direction for a player.
      *
      * 2-player mode: P0 up, P1 down.
      * 4-player mode (clockwise from bottom): P0 up, P1 right, P2 down, P3 left.
      */
-    private getGoalDirection(player: Player): 'up' | 'down' | 'left' | 'right' {
+    private getGoalDirection(player: Player): Direction {
         if (this.gameState.playerCount === 2) {
             return player === 0 ? 'up' : 'down';
         }
-        switch (player) {
-            case 0: return 'up';
-            case 1: return 'right';
-            case 2: return 'down';
-            case 3: return 'left';
-        }
+        return GameScene.GOAL_DIRECTIONS[player];
     }
 
     /**
@@ -428,7 +419,7 @@ export default class GameScene extends Phaser.Scene {
         g.clear();
 
         for (const move of this.validMoves) {
-            const center = this.gridToWorldCenter(move);
+            const center = gridToWorldCenter(move);
 
             // Draw semi-transparent circle
             g.fillStyle(ColorConfig.VALID_MOVE, ColorConfig.VALID_MOVE_ALPHA);
@@ -438,112 +429,6 @@ export default class GameScene extends Phaser.Scene {
             g.lineStyle(GraphicsConfig.VALID_MOVE_RING_WIDTH, ColorConfig.VALID_MOVE, GraphicsConfig.VALID_MOVE_RING_ALPHA);
             g.strokeCircle(center.x, center.y, GraphicsConfig.PAWN_RADIUS * GraphicsConfig.VALID_MOVE_SIZE);
         }
-    }
-
-    // =========================================================================
-    // Coordinate Conversion Methods
-    // =========================================================================
-
-    /**
-     * Converts grid coordinates to world (pixel) coordinates for the top-left of a cell.
-     */
-    private gridToWorld(pos: GridPosition): WorldPosition {
-        return {
-            x: BoardConfig.BOARD_X + pos.col * BoardConfig.CELL_STEP,
-            y: BoardConfig.BOARD_Y + pos.row * BoardConfig.CELL_STEP,
-        };
-    }
-
-    /**
-     * Converts grid coordinates to world (pixel) coordinates for the center of a cell.
-     */
-    private gridToWorldCenter(pos: GridPosition): WorldPosition {
-        const topLeft = this.gridToWorld(pos);
-        return {
-            x: topLeft.x + BoardConfig.CELL_SIZE / 2,
-            y: topLeft.y + BoardConfig.CELL_SIZE / 2,
-        };
-    }
-
-    /**
-     * Converts world (pixel) coordinates to grid coordinates.
-     * Returns null if the click is outside the board or in a gap.
-     */
-    private worldToGrid(pos: WorldPosition): GridPosition | null {
-        // Check if within board bounds
-        const boardX = pos.x - BoardConfig.BOARD_X;
-        const boardY = pos.y - BoardConfig.BOARD_Y;
-
-        if (boardX < 0 || boardY < 0 ||
-            boardX >= BoardConfig.BOARD_SIZE ||
-            boardY >= BoardConfig.BOARD_SIZE) {
-            return null;
-        }
-
-        // Calculate grid position
-        const col = Math.floor(boardX / BoardConfig.CELL_STEP);
-        const row = Math.floor(boardY / BoardConfig.CELL_STEP);
-
-        // Check if click is within a cell (not in the gap)
-        const cellX = boardX % BoardConfig.CELL_STEP;
-        const cellY = boardY % BoardConfig.CELL_STEP;
-
-        if (cellX > BoardConfig.CELL_SIZE || cellY > BoardConfig.CELL_SIZE) {
-            return null; // Click is in the gap
-        }
-
-        // Validate grid bounds
-        if (row < 0 || row >= BoardConfig.GRID_SIZE ||
-            col < 0 || col >= BoardConfig.GRID_SIZE) {
-            return null;
-        }
-
-        return { row, col };
-    }
-
-    /**
-     * Converts world (pixel) coordinates to a gap edge between two adjacent cells.
-     * Returns null if the click is not in a gap or is in a corner intersection.
-     *
-     * We detect clicks in the gap regions between cells:
-     *   - Horizontal gap (between rows): cellY > CELL_SIZE in a cell step
-     *   - Vertical gap (between columns): cellX > CELL_SIZE in a cell step
-     *   - Corner intersection (both): ignored (shared by 4 cells)
-     */
-    private worldToGap(pos: WorldPosition): GapEdge | null {
-        const boardX = pos.x - BoardConfig.BOARD_X;
-        const boardY = pos.y - BoardConfig.BOARD_Y;
-
-        if (boardX < 0 || boardY < 0 ||
-            boardX >= BoardConfig.BOARD_SIZE ||
-            boardY >= BoardConfig.BOARD_SIZE) {
-            return null;
-        }
-
-        const col = Math.floor(boardX / BoardConfig.CELL_STEP);
-        const row = Math.floor(boardY / BoardConfig.CELL_STEP);
-        const cellX = boardX % BoardConfig.CELL_STEP;
-        const cellY = boardY % BoardConfig.CELL_STEP;
-
-        const inHGap = cellY > BoardConfig.CELL_SIZE;
-        const inVGap = cellX > BoardConfig.CELL_SIZE;
-
-        if (!inHGap && !inVGap) return null; // Inside a cell
-        if (inHGap && inVGap) return null;    // Corner intersection (shared by 4 cells)
-
-        if (inHGap) {
-            // Horizontal gap between row and row+1
-            if (row + 1 < BoardConfig.GRID_SIZE) {
-                return { from: { row, col }, to: { row: row + 1, col } };
-            }
-        } else {
-            // Vertical gap between col and col+1
-            if (col + 1 < BoardConfig.GRID_SIZE) {
-                return { from: { row, col }, to: { row, col: col + 1 } };
-            }
-        }
-
-        return null;
     }
 
     // =========================================================================
@@ -570,14 +455,14 @@ export default class GameScene extends Phaser.Scene {
         }
 
         // --- Phase 2: Check for gap click (start wall placement) ---
-        const gap = this.worldToGap(pos);
+        const gap = worldToGap(pos);
         if (gap) {
             this.handleGapClick(gap);
             return;
         }
 
         // --- Phase 3: Cell click (pawn selection / movement) ---
-        const gridPos = this.worldToGrid(pos);
+        const gridPos = worldToGrid(pos);
         if (!gridPos) {
             // Click outside board — deselect
             this.deselectPawn();
@@ -586,7 +471,7 @@ export default class GameScene extends Phaser.Scene {
 
         // Check if clicking on a pawn
         const clickedPlayer = this.gameState.pawns.findIndex(
-            pos => pos.row === gridPos.row && pos.col === gridPos.col
+            pos => samePosition(pos, gridPos)
         );
 
         if (clickedPlayer >= 0) {
@@ -623,15 +508,11 @@ export default class GameScene extends Phaser.Scene {
      */
     private handleWallSecondClick(pos: WorldPosition): boolean {
         // Check if clicking on a gap that corresponds to one of the wall options
-        const gap = this.worldToGap(pos);
+        const gap = worldToGap(pos);
         if (!gap) return false;
 
         // Clicking the same gap again deselects wall placement
-        if (this.wallFirstEdge &&
-            gap.from.row === this.wallFirstEdge.from.row &&
-            gap.from.col === this.wallFirstEdge.from.col &&
-            gap.to.row === this.wallFirstEdge.to.row &&
-            gap.to.col === this.wallFirstEdge.to.col) {
+        if (this.wallFirstEdge && sameGapEdge(gap, this.wallFirstEdge)) {
             this.cancelWallPlacement();
             return true;
         }
@@ -642,11 +523,9 @@ export default class GameScene extends Phaser.Scene {
                 // Try to place this wall
                 const newState = GameLogic.placeWall(this.gameState, wall);
                 if (newState) {
+                    this.moveHistory.push(this.gameState);
                     this.gameState = newState;
-                    this.cancelWallPlacement();
-                    this.drawWalls();
-                    this.drawPawns();
-                    this.updateStatusText();
+                    this.refreshAfterStateChange();
                     return true;
                 }
             }
@@ -716,10 +595,9 @@ export default class GameScene extends Phaser.Scene {
         const newState = GameLogic.makeMove(this.gameState, target);
 
         if (newState) {
+            this.moveHistory.push(this.gameState);
             this.gameState = newState;
-            this.deselectPawn();
-            this.drawPawns();
-            this.updateStatusText();
+            this.refreshAfterStateChange();
         }
     }
 
@@ -735,41 +613,32 @@ export default class GameScene extends Phaser.Scene {
             this.statusText.setText(`🎉 Player ${this.gameState.winner + 1} Wins!`);
         } else {
             const player = this.gameState.currentPlayer;
-            const playerEmoji = this.getPlayerEmoji(player);
             const wallCount = this.gameState.wallCounts[player];
-            this.statusText.setText(`${playerEmoji} Player ${player + 1} 🧱×${wallCount}`);
+            this.statusText.setText(`${PlayerConfig[player].emoji} Player ${player + 1} 🧱×${wallCount}`);
         }
     }
-
-    /**
-     * Gets the emoji for a player.
-     */
-    private getPlayerEmoji(player: Player): string {
-        switch (player) {
-            case 0: return '🔴';
-            case 1: return '🔵';
-            case 2: return '🟢';
-            case 3: return '🟠';
-        }
-    }
-
-    /** Base and selected fill colors per player (index = player). */
-    private static readonly PLAYER_COLORS: { base: number; selected: number }[] = [
-        { base: ColorConfig.PLAYER_1, selected: ColorConfig.PLAYER_1_SELECTED },
-        { base: ColorConfig.PLAYER_2, selected: ColorConfig.PLAYER_2_SELECTED },
-        { base: ColorConfig.PLAYER_3, selected: ColorConfig.PLAYER_3_SELECTED },
-        { base: ColorConfig.PLAYER_4, selected: ColorConfig.PLAYER_4_SELECTED },
-    ];
 
     /**
      * Gets the fill and stroke colors for a player.
      */
     private getPlayerColors(player: Player, isSelected: boolean): { fill: number; stroke: number } {
-        const colors = GameScene.PLAYER_COLORS[player];
+        const config = PlayerConfig[player];
         return {
-            fill: isSelected ? colors.selected : colors.base,
-            stroke: colors.base,
+            fill: isSelected ? config.selectedColor : config.color,
+            stroke: config.color,
         };
+    }
+
+    /**
+     * Refreshes all visuals after a game state change.
+     * Cancels any in-progress interactions and redraws the board.
+     */
+    private refreshAfterStateChange(): void {
+        this.cancelWallPlacement();
+        this.deselectPawn();
+        this.drawWalls();
+        this.drawPawns();
+        this.updateStatusText();
     }
 
     /**
@@ -778,10 +647,17 @@ export default class GameScene extends Phaser.Scene {
      */
     private resetGame(playerCount: 2 | 4): void {
         this.gameState = GameLogic.getInitialState(playerCount);
-        this.cancelWallPlacement();
-        this.deselectPawn();
-        this.drawWalls();
-        this.drawPawns();
-        this.updateStatusText();
+        this.moveHistory = [];
+        this.refreshAfterStateChange();
+    }
+
+    /**
+     * Undoes the last move by restoring the previous game state.
+     */
+    private undoMove(): void {
+        if (this.moveHistory.length === 0) return;
+
+        this.gameState = this.moveHistory.pop()!;
+        this.refreshAfterStateChange();
     }
 }

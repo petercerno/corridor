@@ -69,3 +69,30 @@ export interface GameState {
     /** The player who has won, or null if game is ongoing. */
     winner: Player | null;
 }
+
+/**
+ * Represents a position in world (pixel) coordinates.
+ */
+export interface WorldPosition {
+    x: number;
+    y: number;
+}
+
+/**
+ * Cardinal direction on the board.
+ */
+export type Direction = 'up' | 'down' | 'left' | 'right';
+
+/**
+ * Checks if two grid positions are the same cell.
+ */
+export function samePosition(a: GridPosition, b: GridPosition): boolean {
+    return a.row === b.row && a.col === b.col;
+}
+
+/**
+ * Checks if two gap edges are identical (same from and to cells).
+ */
+export function sameGapEdge(a: GapEdge, b: GapEdge): boolean {
+    return samePosition(a.from, b.from) && samePosition(a.to, b.to);
+}

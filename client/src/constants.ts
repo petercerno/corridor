@@ -44,15 +44,6 @@ const COLORS = {
     SQUARE_BORDER: '#8b6914',
     // Gap color (between squares)
     GAP_COLOR: '#200000',
-    // Player pawn colors
-    PLAYER_1: '#d03030',
-    PLAYER_1_SELECTED: '#ff8b8a',
-    PLAYER_2: '#3030d0',
-    PLAYER_2_SELECTED: '#5dade2',
-    PLAYER_3: '#308030',
-    PLAYER_3_SELECTED: '#5de250',
-    PLAYER_4: '#a05000',
-    PLAYER_4_SELECTED: '#ffb85a',
     // Valid move highlight
     VALID_MOVE: '#008000',
     VALID_MOVE_ALPHA: 0.5,
@@ -71,6 +62,17 @@ const COLORS = {
 };
 
 /**
+ * Per-player configuration (index = player).
+ * Contains base/selected fill colors and status emoji.
+ */
+export const PlayerConfig = [
+    { color: parseColor('#d03030'), selectedColor: parseColor('#ff8b8a'), emoji: '🔴' },
+    { color: parseColor('#3030d0'), selectedColor: parseColor('#5dade2'), emoji: '🔵' },
+    { color: parseColor('#308030'), selectedColor: parseColor('#5de250'), emoji: '🟢' },
+    { color: parseColor('#a05000'), selectedColor: parseColor('#ffb85a'), emoji: '🟠' },
+];
+
+/**
  * Exported color configuration with both string and hex number formats.
  */
 export const ColorConfig = {
@@ -81,16 +83,6 @@ export const ColorConfig = {
     SQUARE_DARK: parseColor(COLORS.SQUARE_DARK),
     SQUARE_BORDER: parseColor(COLORS.SQUARE_BORDER),
     GAP_COLOR: parseColor(COLORS.GAP_COLOR),
-
-    // --- Players ---
-    PLAYER_1: parseColor(COLORS.PLAYER_1),
-    PLAYER_1_SELECTED: parseColor(COLORS.PLAYER_1_SELECTED),
-    PLAYER_2: parseColor(COLORS.PLAYER_2),
-    PLAYER_2_SELECTED: parseColor(COLORS.PLAYER_2_SELECTED),
-    PLAYER_3: parseColor(COLORS.PLAYER_3),
-    PLAYER_3_SELECTED: parseColor(COLORS.PLAYER_3_SELECTED),
-    PLAYER_4: parseColor(COLORS.PLAYER_4),
-    PLAYER_4_SELECTED: parseColor(COLORS.PLAYER_4_SELECTED),
 
     // --- Valid move highlight ---
     VALID_MOVE: parseColor(COLORS.VALID_MOVE),

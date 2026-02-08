@@ -16,7 +16,10 @@ const config: Phaser.Types.Core.GameConfig = {
     },
     parent: 'app',
     backgroundColor: ColorConfig.BOARD_BG_STR,
-    scene: [GameScene]
+    scene: [GameScene],
+    fps: {
+        limit: 10 // Sufficient for a turn-based board game; reduces idle CPU usage.
+    }
 };
 
 new Phaser.Game(config);
