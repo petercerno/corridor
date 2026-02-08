@@ -56,6 +56,12 @@ const COLORS = {
     // Valid move highlight
     VALID_MOVE: '#008000',
     VALID_MOVE_ALPHA: 0.5,
+    // Wall colors
+    WALL_COLOR: '#e0c090',
+    WALL_PREVIEW_COLOR: '#80c080',
+    WALL_PREVIEW_ALPHA: 0.6,
+    WALL_INVALID_COLOR: '#c04040',
+    WALL_INVALID_ALPHA: 0.6,
     // UI colors
     UI_TEXT: '#c4a060',
     UI_TEXT_SHADOW: '#000',
@@ -68,26 +74,15 @@ const COLORS = {
  * Exported color configuration with both string and hex number formats.
  */
 export const ColorConfig = {
+    // --- Board ---
     BOARD_BG_STR: COLORS.BOARD_BG,
-    SQUARE_LIGHT_STR: COLORS.SQUARE_LIGHT,
-    SQUARE_DARK_STR: COLORS.SQUARE_DARK,
-    SQUARE_BORDER_STR: COLORS.SQUARE_BORDER,
-    GAP_COLOR_STR: COLORS.GAP_COLOR,
-    PLAYER_1_STR: COLORS.PLAYER_1,
-    PLAYER_1_SELECTED_STR: COLORS.PLAYER_1_SELECTED,
-    PLAYER_2_STR: COLORS.PLAYER_2,
-    PLAYER_2_SELECTED_STR: COLORS.PLAYER_2_SELECTED,
-    VALID_MOVE_STR: COLORS.VALID_MOVE,
-    UI_TEXT_STR: COLORS.UI_TEXT,
-    UI_TEXT_SHADOW_STR: COLORS.UI_TEXT_SHADOW,
-    BUTTON_BG_STR: COLORS.BUTTON_BG,
-    BUTTON_HOVER_STR: COLORS.BUTTON_HOVER,
-
     BOARD_BG: parseColor(COLORS.BOARD_BG),
     SQUARE_LIGHT: parseColor(COLORS.SQUARE_LIGHT),
     SQUARE_DARK: parseColor(COLORS.SQUARE_DARK),
     SQUARE_BORDER: parseColor(COLORS.SQUARE_BORDER),
     GAP_COLOR: parseColor(COLORS.GAP_COLOR),
+
+    // --- Players ---
     PLAYER_1: parseColor(COLORS.PLAYER_1),
     PLAYER_1_SELECTED: parseColor(COLORS.PLAYER_1_SELECTED),
     PLAYER_2: parseColor(COLORS.PLAYER_2),
@@ -96,16 +91,22 @@ export const ColorConfig = {
     PLAYER_3_SELECTED: parseColor(COLORS.PLAYER_3_SELECTED),
     PLAYER_4: parseColor(COLORS.PLAYER_4),
     PLAYER_4_SELECTED: parseColor(COLORS.PLAYER_4_SELECTED),
+
+    // --- Valid move highlight ---
     VALID_MOVE: parseColor(COLORS.VALID_MOVE),
     VALID_MOVE_ALPHA: COLORS.VALID_MOVE_ALPHA,
-    UI_TEXT: parseColor(COLORS.UI_TEXT),
-    UI_TEXT_SHADOW: parseColor(COLORS.UI_TEXT_SHADOW),
-    BUTTON_BG: parseColor(COLORS.BUTTON_BG),
-    BUTTON_HOVER: parseColor(COLORS.BUTTON_HOVER),
-    PLAYER_3_STR: COLORS.PLAYER_3,
-    PLAYER_3_SELECTED_STR: COLORS.PLAYER_3_SELECTED,
-    PLAYER_4_STR: COLORS.PLAYER_4,
-    PLAYER_4_SELECTED_STR: COLORS.PLAYER_4_SELECTED,
+
+    // --- Walls ---
+    WALL_COLOR: parseColor(COLORS.WALL_COLOR),
+    WALL_PREVIEW: parseColor(COLORS.WALL_PREVIEW_COLOR),
+    WALL_PREVIEW_ALPHA: COLORS.WALL_PREVIEW_ALPHA,
+    WALL_INVALID: parseColor(COLORS.WALL_INVALID_COLOR),
+    WALL_INVALID_ALPHA: COLORS.WALL_INVALID_ALPHA,
+
+    // --- UI (string format for Phaser text styles) ---
+    UI_TEXT_STR: COLORS.UI_TEXT,
+    BUTTON_BG_STR: COLORS.BUTTON_BG,
+    BUTTON_HOVER_STR: COLORS.BUTTON_HOVER,
 };
 
 /**
@@ -138,6 +139,10 @@ export const GraphicsConfig = {
     VALID_MOVE_RING_ALPHA: 0.8,
     /** Size multiplier for valid move indicator. */
     VALID_MOVE_SIZE: 0.6,
+    /** Thickness of wall rendering in pixels. */
+    WALL_THICKNESS: 20,
+    /** Corner radius for wall rendering. */
+    WALL_CORNER_RADIUS: 5,
 };
 
 /**
@@ -159,24 +164,34 @@ export const UIConfig = {
 };
 
 /**
- * Starting positions for 2-player mode.
- * Player 1 starts at bottom, Player 2 starts at top.
+ * Wall count configuration per game mode.
  */
-export const StartPositions2P = {
-    PLAYER_1: { row: 8, col: 4 },  // Bottom center
-    PLAYER_2: { row: 0, col: 4 },  // Top center
+export const WallConfig = {
+    /** Number of walls per player in 2-player mode. */
+    WALLS_2P: 10,
+    /** Number of walls per player in 4-player mode. */
+    WALLS_4P: 5,
 };
 
 /**
- * Starting positions for 4-player mode (clockwise from bottom).
- * Player 1: bottom → wants top row
- * Player 2: left → wants right column
- * Player 3: top → wants bottom row
- * Player 4: right → wants left column
+ * Starting positions for 2-player mode (index = player).
+ * Player 0 starts at bottom, Player 1 starts at top.
  */
-export const StartPositions4P = {
-    PLAYER_1: { row: 8, col: 4 },  // Bottom center
-    PLAYER_2: { row: 4, col: 0 },  // Left center
-    PLAYER_3: { row: 0, col: 4 },  // Top center
-    PLAYER_4: { row: 4, col: 8 },  // Right center
-};
+export const StartPositions2P = [
+    { row: 8, col: 4 },  // Player 0: bottom center
+    { row: 0, col: 4 },  // Player 1: top center
+];
+
+/**
+ * Starting positions for 4-player mode (index = player, clockwise from bottom).
+ * Player 0: bottom → wants top row
+ * Player 1: left → wants right column
+ * Player 2: top → wants bottom row
+ * Player 3: right → wants left column
+ */
+export const StartPositions4P = [
+    { row: 8, col: 4 },  // Player 0: bottom center
+    { row: 4, col: 0 },  // Player 1: left center
+    { row: 0, col: 4 },  // Player 2: top center
+    { row: 4, col: 8 },  // Player 3: right center
+];
