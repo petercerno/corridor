@@ -11,7 +11,7 @@ export const BoardConfig = {
     /** Margin around the board in pixels. */
     MARGIN: 80,
     /** Height of the UI area at the top in pixels. */
-    UI_HEIGHT: 120,
+    UI_HEIGHT: 150,
     /** Computed cell step (cell + gap). */
     get CELL_STEP() { return this.CELL_SIZE + this.GAP_SIZE; },
     /** Computed board size in pixels (without margins). */
@@ -55,7 +55,6 @@ const COLORS = {
     WALL_INVALID_ALPHA: 0.6,
     // UI colors
     UI_TEXT: '#c4a060',
-    UI_TEXT_SHADOW: '#000',
     // Button colors
     BUTTON_BG: '#4a3d24',
     BUTTON_HOVER: '#6a5d44',
@@ -63,13 +62,13 @@ const COLORS = {
 
 /**
  * Per-player configuration (index = player).
- * Contains base/selected fill colors and status emoji.
+ * Contains base and selected fill colors.
  */
 export const PlayerConfig = [
-    { color: parseColor('#d03030'), selectedColor: parseColor('#ff8b8a'), emoji: '🔴' },
-    { color: parseColor('#3030d0'), selectedColor: parseColor('#5dade2'), emoji: '🔵' },
-    { color: parseColor('#308030'), selectedColor: parseColor('#5de250'), emoji: '🟢' },
-    { color: parseColor('#a05000'), selectedColor: parseColor('#ffb85a'), emoji: '🟠' },
+    { color: parseColor('#d03030'), selectedColor: parseColor('#ff8b8a') },
+    { color: parseColor('#3030d0'), selectedColor: parseColor('#5dade2') },
+    { color: parseColor('#308030'), selectedColor: parseColor('#5de250') },
+    { color: parseColor('#a05000'), selectedColor: parseColor('#ffb85a') },
 ];
 
 /**
@@ -141,18 +140,14 @@ export const GraphicsConfig = {
  * Configuration for UI elements.
  */
 export const UIConfig = {
-    /** Font size for status text. */
-    STATUS_FONT_SIZE: '48px',
     /** Font size for button text. */
     BUTTON_FONT_SIZE: '48px',
     /** Font family for text. */
     FONT_FAMILY: 'Arial, sans-serif',
-    /** Vertical offset for UI elements from top. */
-    UI_VERTICAL_OFFSET: 10,
-    /** Horizontal padding for buttons. */
-    BUTTON_PADDING_X: 20,
     /** Vertical padding for buttons. */
-    BUTTON_PADDING_Y: 10,
+    BUTTON_PADDING_Y: 22,
+    /** Corner radius for button backgrounds. */
+    BUTTON_CORNER_RADIUS: 12,
 };
 
 /**

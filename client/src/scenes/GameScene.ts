@@ -34,8 +34,20 @@ export default class GameScene extends Phaser.Scene {
     /** Valid moves for the selected pawn. */
     private validMoves: GridPosition[] = [];
 
-    /** Status text showing current player. */
-    private statusText!: Phaser.GameObjects.Text;
+    /** Graphics object for the player status indicator. */
+    private statusGraphics!: Phaser.GameObjects.Graphics;
+
+    /** Graphics object for the wall count background. */
+    private wallCountBg!: Phaser.GameObjects.Graphics;
+
+    /** Text showing the current player's remaining wall count. */
+    private wallCountText!: Phaser.GameObjects.Text;
+
+    /** Computed button width (shared by all buttons and the status indicator). */
+    private btnWidth = 0;
+
+    /** Computed button height (shared by all buttons and the status indicator). */
+    private btnHeight = 0;
 
     /** Stack of previous game states for undo (cleared on game reset). */
     private moveHistory: GameState[] = [];
@@ -70,7 +82,7 @@ export default class GameScene extends Phaser.Scene {
         this.drawBoard();
         this.drawWalls();
         this.drawPawns();
-        this.updateStatusText();
+        this.updateStatusIndicator();
     }
 
     // =========================================================================
@@ -93,56 +105,86 @@ export default class GameScene extends Phaser.Scene {
      * Creates UI elements.
      */
     private setupUI(): void {
-        // Status text showing current player
-        this.statusText = this.add.text(
-            BoardConfig.CANVAS_WIDTH / 2,
-            BoardConfig.MARGIN / 2 + UIConfig.UI_VERTICAL_OFFSET,
+        // Player status indicator (circle with direction triangle)
+        this.statusGraphics = this.add.graphics();
+
+        // All buttons are cell-sized squares, aligned with the board grid
+        this.btnWidth = BoardConfig.CELL_SIZE;
+        this.btnHeight = BoardConfig.CELL_SIZE;
+        const btnY = BoardConfig.BOARD_Y - BoardConfig.CELL_SIZE - BoardConfig.GAP_SIZE;
+
+        // Wall count indicator (next to player indicator)
+        this.wallCountBg = this.add.graphics();
+        this.wallCountBg.setDepth(0);
+        const wallBgX = BoardConfig.BOARD_X + this.btnWidth + BoardConfig.GAP_SIZE;
+        this.wallCountBg.fillStyle(parseInt(ColorConfig.BUTTON_BG_STR.replace('#', '0x'), 16));
+        this.wallCountBg.fillRoundedRect(wallBgX, btnY, this.btnWidth, this.btnHeight, UIConfig.BUTTON_CORNER_RADIUS);
+        this.wallCountText = this.add.text(
+            wallBgX + this.btnWidth / 2,
+            btnY + this.btnHeight / 2,
             '',
-            {
-                fontSize: UIConfig.STATUS_FONT_SIZE,
-                fontFamily: UIConfig.FONT_FAMILY,
-                color: ColorConfig.UI_TEXT_STR,
-            }
-        );
-        this.statusText.setOrigin(0.5, 0.5);
-
-        // Add buttons right-to-left: 4P reset, 2P reset, undo
-        const reset4Btn = this.createButton(
-            BoardConfig.CANVAS_WIDTH - BoardConfig.MARGIN,
-            '⏻₄', () => this.resetGame(4)
-        );
-        const reset2Btn = this.createButton(
-            reset4Btn.x - reset4Btn.width - UIConfig.BUTTON_PADDING_X,
-            '⏻₂', () => this.resetGame(2)
-        );
-        this.createButton(
-            reset2Btn.x - reset2Btn.width - UIConfig.BUTTON_PADDING_X,
-            '↺', () => this.undoMove()
-        );
-    }
-
-    /**
-     * Creates a styled button at the given x position.
-     */
-    private createButton(x: number, label: string, onClick: () => void): Phaser.GameObjects.Text {
-        const btn = this.add.text(
-            x,
-            BoardConfig.MARGIN / 2 + UIConfig.UI_VERTICAL_OFFSET,
-            label,
             {
                 fontSize: UIConfig.BUTTON_FONT_SIZE,
                 fontFamily: UIConfig.FONT_FAMILY,
                 color: ColorConfig.UI_TEXT_STR,
-                backgroundColor: ColorConfig.BUTTON_BG_STR,
-                padding: { x: UIConfig.BUTTON_PADDING_X, y: UIConfig.BUTTON_PADDING_Y },
+                align: 'center',
             }
         );
-        btn.setOrigin(1, 0.5);
-        btn.setInteractive({ useHandCursor: true });
-        btn.on('pointerdown', onClick);
-        btn.on('pointerover', () => btn.setStyle({ backgroundColor: ColorConfig.BUTTON_HOVER_STR }));
-        btn.on('pointerout', () => btn.setStyle({ backgroundColor: ColorConfig.BUTTON_BG_STR }));
-        return btn;
+        this.wallCountText.setOrigin(0.5, 0.5);
+        this.wallCountText.setDepth(1);
+
+        // Add buttons right-to-left from the board's right edge
+        const gap = BoardConfig.GAP_SIZE;
+        let rightEdge = BoardConfig.BOARD_X + BoardConfig.BOARD_SIZE;
+        this.createButton(rightEdge, '⏻₄', () => this.resetGame(4));
+        rightEdge -= this.btnWidth + gap;
+        this.createButton(rightEdge, '⏻₂', () => this.resetGame(2));
+        rightEdge -= this.btnWidth + gap;
+        this.createButton(rightEdge, '↺', () => this.undoMove());
+    }
+
+    /**
+     * Creates a styled button with a rounded-rectangle background.
+     * Buttons are cell-sized squares aligned with the board's top row.
+     * @param rightEdge Right edge x-coordinate of the button.
+     * @param label Button text label.
+     * @param onClick Click handler.
+     */
+    private createButton(rightEdge: number, label: string, onClick: () => void): void {
+        const width = this.btnWidth;
+        const height = this.btnHeight;
+        const radius = UIConfig.BUTTON_CORNER_RADIUS;
+        const bgX = rightEdge - width;
+        const bgY = BoardConfig.BOARD_Y - BoardConfig.CELL_SIZE - BoardConfig.GAP_SIZE;
+        const cx = bgX + width / 2;
+        const cy = bgY + height / 2;
+
+        // Draw rounded-rect background (behind text)
+        const bg = this.add.graphics();
+        bg.setDepth(0);
+        const drawBg = (color: string) => {
+            bg.clear();
+            bg.fillStyle(parseInt(color.replace('#', '0x'), 16));
+            bg.fillRoundedRect(bgX, bgY, width, height, radius);
+        };
+        drawBg(ColorConfig.BUTTON_BG_STR);
+
+        // Create centered text with internal padding for subscript clipping
+        const text = this.add.text(cx, cy, label, {
+            fontSize: UIConfig.BUTTON_FONT_SIZE,
+            fontFamily: UIConfig.FONT_FAMILY,
+            color: ColorConfig.UI_TEXT_STR,
+            padding: { top: UIConfig.BUTTON_PADDING_Y, bottom: UIConfig.BUTTON_PADDING_Y, left: 0, right: 0 },
+        });
+        text.setOrigin(0.5, 0.5);
+        text.setDepth(1);
+
+        // Interactive hit area over the background
+        const hitZone = this.add.zone(cx, cy, width, height);
+        hitZone.setInteractive({ useHandCursor: true });
+        hitZone.on('pointerdown', onClick);
+        hitZone.on('pointerover', () => drawBg(ColorConfig.BUTTON_HOVER_STR));
+        hitZone.on('pointerout', () => drawBg(ColorConfig.BUTTON_BG_STR));
     }
 
     /**
@@ -367,8 +409,11 @@ export default class GameScene extends Phaser.Scene {
      * Uses a rotation-based approach: the base triangle points up (angle 0),
      * then is rotated to match the player's goal direction.
      */
-    private drawDirectionTriangle(g: Phaser.GameObjects.Graphics, cx: number, cy: number, player: Player): void {
-        const size = GraphicsConfig.PAWN_RADIUS * 0.5;
+    private drawDirectionTriangle(
+        g: Phaser.GameObjects.Graphics, cx: number, cy: number,
+        player: Player, sizeOverride?: number
+    ): void {
+        const size = sizeOverride ?? GraphicsConfig.PAWN_RADIUS * 0.5;
         const angle = GameScene.DIRECTION_ANGLES[this.getGoalDirection(player)];
 
         // Base triangle pointing up: tip, bottom-left, bottom-right
@@ -606,16 +651,42 @@ export default class GameScene extends Phaser.Scene {
     // =========================================================================
 
     /**
-     * Updates the status text to show current player and wall count.
+     * Draws the player status indicator: a cell-sized rounded rect
+     * with the current player's colored circle and direction triangle.
      */
-    private updateStatusText(): void {
-        if (this.gameState.winner !== null) {
-            this.statusText.setText(`🎉 Player ${this.gameState.winner + 1} Wins!`);
-        } else {
-            const player = this.gameState.currentPlayer;
-            const wallCount = this.gameState.wallCounts[player];
-            this.statusText.setText(`${PlayerConfig[player].emoji} Player ${player + 1} 🧱×${wallCount}`);
-        }
+    private updateStatusIndicator(): void {
+        const g = this.statusGraphics;
+        g.clear();
+
+        const player = this.gameState.winner ?? this.gameState.currentPlayer;
+        const width = this.btnWidth;
+        const height = this.btnHeight;
+        const radius = UIConfig.BUTTON_CORNER_RADIUS;
+        const bgX = BoardConfig.BOARD_X;
+        const bgY = BoardConfig.BOARD_Y - BoardConfig.CELL_SIZE - BoardConfig.GAP_SIZE;
+        const cx = bgX + width / 2;
+        const cy = bgY + height / 2;
+        const { fill: fillColor, stroke: strokeColor } = this.getPlayerColors(player, false);
+
+        // Draw button-style rounded-rect background
+        g.fillStyle(parseInt(ColorConfig.BUTTON_BG_STR.replace('#', '0x'), 16));
+        g.fillRoundedRect(bgX, bgY, width, height, radius);
+
+        // Draw player-colored circle inside
+        const circleRadius = Math.min(width, height) * 0.35;
+        g.fillStyle(fillColor);
+        g.fillCircle(cx, cy, circleRadius);
+
+        // Draw outline
+        g.lineStyle(3, strokeColor);
+        g.strokeCircle(cx, cy, circleRadius);
+
+        // Draw direction triangle
+        this.drawDirectionTriangle(g, cx, cy, player, circleRadius * 0.65);
+
+        // Update wall count text
+        const wallCount = this.gameState.wallCounts[player];
+        this.wallCountText.setText(`${wallCount}`);
     }
 
     /**
@@ -638,7 +709,7 @@ export default class GameScene extends Phaser.Scene {
         this.deselectPawn();
         this.drawWalls();
         this.drawPawns();
-        this.updateStatusText();
+        this.updateStatusIndicator();
     }
 
     /**

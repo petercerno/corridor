@@ -26,7 +26,7 @@ export function gridToWorldCenter(pos: GridPosition): WorldPosition {
  * Converts world (pixel) coordinates to board-relative cell coordinates.
  * Returns null if the position is outside the board.
  */
-export function worldToBoard(pos: WorldPosition): { row: number; col: number; cellX: number; cellY: number } | null {
+function worldToBoard(pos: WorldPosition): { row: number; col: number; cellX: number; cellY: number } | null {
     const boardX = pos.x - BoardConfig.BOARD_X;
     const boardY = pos.y - BoardConfig.BOARD_Y;
 
