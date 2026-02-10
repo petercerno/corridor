@@ -117,7 +117,7 @@ export default class GameScene extends Phaser.Scene {
         this.wallCountBg = this.add.graphics();
         this.wallCountBg.setDepth(0);
         const wallBgX = BoardConfig.BOARD_X + this.btnWidth + BoardConfig.GAP_SIZE;
-        this.wallCountBg.fillStyle(parseInt(ColorConfig.BUTTON_BG_STR.replace('#', '0x'), 16));
+        this.wallCountBg.fillStyle(ColorConfig.BUTTON_BG);
         this.wallCountBg.fillRoundedRect(wallBgX, btnY, this.btnWidth, this.btnHeight, UIConfig.BUTTON_CORNER_RADIUS);
         this.wallCountText = this.add.text(
             wallBgX + this.btnWidth / 2,
@@ -162,12 +162,12 @@ export default class GameScene extends Phaser.Scene {
         // Draw rounded-rect background (behind text)
         const bg = this.add.graphics();
         bg.setDepth(0);
-        const drawBg = (color: string) => {
+        const drawBg = (color: number) => {
             bg.clear();
-            bg.fillStyle(parseInt(color.replace('#', '0x'), 16));
+            bg.fillStyle(color);
             bg.fillRoundedRect(bgX, bgY, width, height, radius);
         };
-        drawBg(ColorConfig.BUTTON_BG_STR);
+        drawBg(ColorConfig.BUTTON_BG);
 
         // Create centered text with internal padding for subscript clipping
         const text = this.add.text(cx, cy, label, {
@@ -183,8 +183,8 @@ export default class GameScene extends Phaser.Scene {
         const hitZone = this.add.zone(cx, cy, width, height);
         hitZone.setInteractive({ useHandCursor: true });
         hitZone.on('pointerdown', onClick);
-        hitZone.on('pointerover', () => drawBg(ColorConfig.BUTTON_HOVER_STR));
-        hitZone.on('pointerout', () => drawBg(ColorConfig.BUTTON_BG_STR));
+        hitZone.on('pointerover', () => drawBg(ColorConfig.BUTTON_HOVER));
+        hitZone.on('pointerout', () => drawBg(ColorConfig.BUTTON_BG));
     }
 
     /**
@@ -668,8 +668,11 @@ export default class GameScene extends Phaser.Scene {
         const cy = bgY + height / 2;
         const { fill: fillColor, stroke: strokeColor } = this.getPlayerColors(player, false);
 
-        // Draw button-style rounded-rect background
-        g.fillStyle(parseInt(ColorConfig.BUTTON_BG_STR.replace('#', '0x'), 16));
+        // Draw button-style rounded-rect background (green when a player has won)
+        const bgColor = this.gameState.winner != null
+            ? ColorConfig.WINNER_BG
+            : ColorConfig.BUTTON_BG;
+        g.fillStyle(bgColor);
         g.fillRoundedRect(bgX, bgY, width, height, radius);
 
         // Draw player-colored circle inside

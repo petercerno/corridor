@@ -9,7 +9,7 @@ export const BoardConfig = {
     /** Gap between squares in pixels (for wall placement). */
     GAP_SIZE: 30,
     /** Margin around the board in pixels. */
-    MARGIN: 80,
+    MARGIN: 20,
     /** Height of the UI area at the top in pixels. */
     UI_HEIGHT: 150,
     /** Computed cell step (cell + gap). */
@@ -29,35 +29,37 @@ export const BoardConfig = {
 /**
  * Helper to parse a hex string (e.g., '#ffffff') into a number (e.g., 0xffffff).
  */
-const parseColor = (color: string) => parseInt(color.replace('#', '0x'), 16);
+export const parseColor = (color: string) => parseInt(color.replace('#', '0x'), 16);
 
 /**
  * Wooden board color palette.
  */
 const COLORS = {
     // Board background (dark wood)
-    BOARD_BG: '#302010',
+    BOARD_BG: '#dddddd',
     // Square colors (lighter wood)
-    SQUARE_LIGHT: '#d4b87a',
-    SQUARE_DARK: '#c4a060',
+    SQUARE_LIGHT: '#bbbbbb',
+    SQUARE_DARK: '#aaaaaa',
     // Square border/shadow
-    SQUARE_BORDER: '#8b6914',
+    SQUARE_BORDER: '#444444',
     // Gap color (between squares)
-    GAP_COLOR: '#200000',
+    GAP_COLOR: '#dddddd',
     // Valid move highlight
     VALID_MOVE: '#008000',
     VALID_MOVE_ALPHA: 0.5,
     // Wall colors
-    WALL_COLOR: '#e0c090',
+    WALL_COLOR: '#444444',
     WALL_PREVIEW_COLOR: '#80c080',
     WALL_PREVIEW_ALPHA: 0.6,
     WALL_INVALID_COLOR: '#c04040',
     WALL_INVALID_ALPHA: 0.6,
     // UI colors
-    UI_TEXT: '#c4a060',
+    UI_TEXT: '#ffffff',
     // Button colors
-    BUTTON_BG: '#4a3d24',
-    BUTTON_HOVER: '#6a5d44',
+    BUTTON_BG: '#808080',
+    BUTTON_HOVER: '#bbbbbb',
+    // Winner background
+    WINNER_BG: '#308030',
 };
 
 /**
@@ -97,7 +99,10 @@ export const ColorConfig = {
     // --- UI (string format for Phaser text styles) ---
     UI_TEXT_STR: COLORS.UI_TEXT,
     BUTTON_BG_STR: COLORS.BUTTON_BG,
+    BUTTON_BG: parseColor(COLORS.BUTTON_BG),
     BUTTON_HOVER_STR: COLORS.BUTTON_HOVER,
+    BUTTON_HOVER: parseColor(COLORS.BUTTON_HOVER),
+    WINNER_BG: parseColor(COLORS.WINNER_BG),
 };
 
 /**
