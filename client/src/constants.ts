@@ -32,34 +32,104 @@ export const BoardConfig = {
 export const parseColor = (color: string) => parseInt(color.replace('#', '0x'), 16);
 
 /**
- * Wooden board color palette.
+ * Light mode color palette.
  */
-const COLORS = {
-    // Board background (dark wood)
+const LIGHT_COLORS = {
     BOARD_BG: '#dddddd',
-    // Square colors (lighter wood)
     SQUARE_LIGHT: '#bbbbbb',
     SQUARE_DARK: '#aaaaaa',
-    // Square border/shadow
     SQUARE_BORDER: '#444444',
-    // Gap color (between squares)
     GAP_COLOR: '#dddddd',
-    // Valid move highlight
     VALID_MOVE: '#008000',
     VALID_MOVE_ALPHA: 0.5,
-    // Wall colors
     WALL_COLOR: '#444444',
     WALL_PREVIEW_COLOR: '#80c080',
     WALL_PREVIEW_ALPHA: 0.6,
     WALL_INVALID_COLOR: '#c04040',
     WALL_INVALID_ALPHA: 0.6,
-    // UI colors
-    UI_TEXT: '#ffffff',
-    // Button colors
-    BUTTON_BG: '#808080',
-    BUTTON_HOVER: '#bbbbbb',
-    // Winner background
+    UI_TEXT: '#333333',
+    BUTTON_BG: '#bbbbbb',
+    BUTTON_HOVER: '#999999',
     WINNER_BG: '#308030',
+};
+
+/**
+ * Dark mode color palette.
+ */
+const DARK_COLORS = {
+    BOARD_BG: '#333333',
+    SQUARE_LIGHT: '#555555',
+    SQUARE_DARK: '#484848',
+    SQUARE_BORDER: '#222222',
+    GAP_COLOR: '#333333',
+    VALID_MOVE: '#00cc00',
+    VALID_MOVE_ALPHA: 0.5,
+    WALL_COLOR: '#cccccc',
+    WALL_PREVIEW_COLOR: '#80c080',
+    WALL_PREVIEW_ALPHA: 0.6,
+    WALL_INVALID_COLOR: '#c04040',
+    WALL_INVALID_ALPHA: 0.6,
+    UI_TEXT: '#ffffff',
+    BUTTON_BG: '#555555',
+    BUTTON_HOVER: '#777777',
+    WINNER_BG: '#308030',
+};
+
+/**
+ * Tracks the current theme state.
+ */
+let _isDarkMode = true;
+
+/**
+ * Returns whether dark mode is currently active.
+ */
+export const isDarkMode = () => _isDarkMode;
+
+/**
+ * Updates the ColorConfig with values from the given palette.
+ */
+const updateColorConfig = (palette: typeof DARK_COLORS) => {
+    ColorConfig.BOARD_BG_STR = palette.BOARD_BG;
+    ColorConfig.BOARD_BG = parseColor(palette.BOARD_BG);
+    ColorConfig.SQUARE_LIGHT = parseColor(palette.SQUARE_LIGHT);
+    ColorConfig.SQUARE_DARK = parseColor(palette.SQUARE_DARK);
+    ColorConfig.SQUARE_BORDER = parseColor(palette.SQUARE_BORDER);
+    ColorConfig.GAP_COLOR = parseColor(palette.GAP_COLOR);
+    ColorConfig.VALID_MOVE = parseColor(palette.VALID_MOVE);
+    ColorConfig.VALID_MOVE_ALPHA = palette.VALID_MOVE_ALPHA;
+    ColorConfig.WALL_COLOR = parseColor(palette.WALL_COLOR);
+    ColorConfig.WALL_PREVIEW = parseColor(palette.WALL_PREVIEW_COLOR);
+    ColorConfig.WALL_PREVIEW_ALPHA = palette.WALL_PREVIEW_ALPHA;
+    ColorConfig.WALL_INVALID = parseColor(palette.WALL_INVALID_COLOR);
+    ColorConfig.WALL_INVALID_ALPHA = palette.WALL_INVALID_ALPHA;
+    ColorConfig.UI_TEXT_STR = palette.UI_TEXT;
+    ColorConfig.BUTTON_BG_STR = palette.BUTTON_BG;
+    ColorConfig.BUTTON_BG = parseColor(palette.BUTTON_BG);
+    ColorConfig.BUTTON_HOVER_STR = palette.BUTTON_HOVER;
+    ColorConfig.BUTTON_HOVER = parseColor(palette.BUTTON_HOVER);
+    ColorConfig.WINNER_BG = parseColor(palette.WINNER_BG);
+};
+
+/**
+ * Initializes the theme based on system preference.
+ * Should be called once at application startup.
+ */
+export const initTheme = () => {
+    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
+        _isDarkMode = false;
+        updateColorConfig(LIGHT_COLORS);
+    } else {
+        _isDarkMode = true;
+        updateColorConfig(DARK_COLORS);
+    }
+};
+
+/**
+ * Toggles between dark and light mode, updating ColorConfig accordingly.
+ */
+export const toggleTheme = () => {
+    _isDarkMode = !_isDarkMode;
+    updateColorConfig(_isDarkMode ? DARK_COLORS : LIGHT_COLORS);
 };
 
 /**
@@ -74,36 +144,41 @@ export const PlayerConfig = [
 ];
 
 /**
- * Exported color configuration with both string and hex number formats.
+ * Exported color configuration, providing both string and hex number formats.
+ * This object is mutable and updated by initTheme() and toggleTheme().
+ * Initial values are set by initTheme() on application startup.
  */
 export const ColorConfig = {
     // --- Board ---
-    BOARD_BG_STR: COLORS.BOARD_BG,
-    BOARD_BG: parseColor(COLORS.BOARD_BG),
-    SQUARE_LIGHT: parseColor(COLORS.SQUARE_LIGHT),
-    SQUARE_DARK: parseColor(COLORS.SQUARE_DARK),
-    SQUARE_BORDER: parseColor(COLORS.SQUARE_BORDER),
-    GAP_COLOR: parseColor(COLORS.GAP_COLOR),
+    BOARD_BG_STR: '',
+    BOARD_BG: 0,
+    SQUARE_LIGHT: 0,
+    SQUARE_DARK: 0,
+    SQUARE_BORDER: 0,
+    GAP_COLOR: 0,
 
     // --- Valid move highlight ---
-    VALID_MOVE: parseColor(COLORS.VALID_MOVE),
-    VALID_MOVE_ALPHA: COLORS.VALID_MOVE_ALPHA,
+    VALID_MOVE: 0,
+    VALID_MOVE_ALPHA: 0,
 
     // --- Walls ---
-    WALL_COLOR: parseColor(COLORS.WALL_COLOR),
-    WALL_PREVIEW: parseColor(COLORS.WALL_PREVIEW_COLOR),
-    WALL_PREVIEW_ALPHA: COLORS.WALL_PREVIEW_ALPHA,
-    WALL_INVALID: parseColor(COLORS.WALL_INVALID_COLOR),
-    WALL_INVALID_ALPHA: COLORS.WALL_INVALID_ALPHA,
+    WALL_COLOR: 0,
+    WALL_PREVIEW: 0,
+    WALL_PREVIEW_ALPHA: 0,
+    WALL_INVALID: 0,
+    WALL_INVALID_ALPHA: 0,
 
     // --- UI (string format for Phaser text styles) ---
-    UI_TEXT_STR: COLORS.UI_TEXT,
-    BUTTON_BG_STR: COLORS.BUTTON_BG,
-    BUTTON_BG: parseColor(COLORS.BUTTON_BG),
-    BUTTON_HOVER_STR: COLORS.BUTTON_HOVER,
-    BUTTON_HOVER: parseColor(COLORS.BUTTON_HOVER),
-    WINNER_BG: parseColor(COLORS.WINNER_BG),
+    UI_TEXT_STR: '',
+    BUTTON_BG_STR: '',
+    BUTTON_BG: 0,
+    BUTTON_HOVER_STR: '',
+    BUTTON_HOVER: 0,
+    WINNER_BG: 0,
 };
+
+// Initialize with default dark mode colors for type safety before initTheme() is called
+updateColorConfig(DARK_COLORS);
 
 /**
  * Configuration for graphics rendering.

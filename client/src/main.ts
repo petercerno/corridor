@@ -4,7 +4,11 @@
  */
 import Phaser from 'phaser';
 import GameScene from './scenes/GameScene';
-import { BoardConfig, ColorConfig } from './constants';
+import { BoardConfig, ColorConfig, initTheme } from './constants';
+
+// Initialize theme based on system preference before creating the game
+initTheme();
+document.body.style.backgroundColor = ColorConfig.BOARD_BG_STR;
 
 const config: Phaser.Types.Core.GameConfig = {
     type: Phaser.AUTO,

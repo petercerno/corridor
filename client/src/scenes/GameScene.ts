@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { BoardConfig, ColorConfig, GraphicsConfig, PlayerConfig, UIConfig } from '../constants';
+import { BoardConfig, ColorConfig, GraphicsConfig, isDarkMode, PlayerConfig, toggleTheme, UIConfig } from '../constants';
 import { GameLogic } from '../logic/GameLogic';
 import { gridToWorld, gridToWorldCenter, worldToGap, worldToGrid } from '../logic/coordinates';
 import { samePosition, sameGapEdge } from '../types';
@@ -51,6 +51,12 @@ export default class GameScene extends Phaser.Scene {
 
     /** Stack of previous game states for undo (cleared on game reset). */
     private moveHistory: GameState[] = [];
+
+    /** Theme button text reference (for updating label on toggle). */
+    private themeButtonText!: Phaser.GameObjects.Text;
+
+    /** All button components for theme refresh. */
+    private buttons: { bg: Phaser.GameObjects.Graphics; text: Phaser.GameObjects.Text; drawBg: (color: number) => void }[] = [];
 
     // --- Wall placement state ---
 
@@ -141,6 +147,8 @@ export default class GameScene extends Phaser.Scene {
         this.createButton(rightEdge, '⏻₂', () => this.resetGame(2));
         rightEdge -= this.btnWidth + gap;
         this.createButton(rightEdge, '↺', () => this.undoMove());
+        rightEdge -= this.btnWidth + gap;
+        this.themeButtonText = this.createButton(rightEdge, isDarkMode() ? '☼' : '☾', () => this.handleToggleTheme());
     }
 
     /**
@@ -149,8 +157,9 @@ export default class GameScene extends Phaser.Scene {
      * @param rightEdge Right edge x-coordinate of the button.
      * @param label Button text label.
      * @param onClick Click handler.
+     * @returns The button's text object (for label updates).
      */
-    private createButton(rightEdge: number, label: string, onClick: () => void): void {
+    private createButton(rightEdge: number, label: string, onClick: () => void): Phaser.GameObjects.Text {
         const width = this.btnWidth;
         const height = this.btnHeight;
         const radius = UIConfig.BUTTON_CORNER_RADIUS;
@@ -179,12 +188,17 @@ export default class GameScene extends Phaser.Scene {
         text.setOrigin(0.5, 0.5);
         text.setDepth(1);
 
+        // Track button components for theme refresh
+        this.buttons.push({ bg, text, drawBg });
+
         // Interactive hit area over the background
         const hitZone = this.add.zone(cx, cy, width, height);
         hitZone.setInteractive({ useHandCursor: true });
         hitZone.on('pointerdown', onClick);
         hitZone.on('pointerover', () => drawBg(ColorConfig.BUTTON_HOVER));
         hitZone.on('pointerout', () => drawBg(ColorConfig.BUTTON_BG));
+
+        return text;
     }
 
     /**
@@ -710,6 +724,36 @@ export default class GameScene extends Phaser.Scene {
     private refreshAfterStateChange(): void {
         this.cancelWallPlacement();
         this.deselectPawn();
+        this.drawWalls();
+        this.drawPawns();
+        this.updateStatusIndicator();
+    }
+
+    /**
+     * Handles theme toggle: updates colors and refreshes all visual elements.
+     */
+    private handleToggleTheme(): void {
+        toggleTheme();
+        this.cameras.main.setBackgroundColor(ColorConfig.BOARD_BG_STR);
+        document.body.style.backgroundColor = ColorConfig.BOARD_BG_STR;
+        this.themeButtonText.setText(isDarkMode() ? '☼' : '☾');
+
+        // Refresh all button backgrounds and text colors
+        for (const btn of this.buttons) {
+            btn.drawBg(ColorConfig.BUTTON_BG);
+            btn.text.setColor(ColorConfig.UI_TEXT_STR);
+        }
+
+        // Refresh wall count indicator
+        this.wallCountBg.clear();
+        const wallBgX = BoardConfig.BOARD_X + this.btnWidth + BoardConfig.GAP_SIZE;
+        const btnY = BoardConfig.BOARD_Y - BoardConfig.CELL_SIZE - BoardConfig.GAP_SIZE;
+        this.wallCountBg.fillStyle(ColorConfig.BUTTON_BG);
+        this.wallCountBg.fillRoundedRect(wallBgX, btnY, this.btnWidth, this.btnHeight, UIConfig.BUTTON_CORNER_RADIUS);
+        this.wallCountText.setColor(ColorConfig.UI_TEXT_STR);
+
+        // Redraw board and game elements
+        this.drawBoard();
         this.drawWalls();
         this.drawPawns();
         this.updateStatusIndicator();
