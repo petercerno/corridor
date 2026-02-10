@@ -1,5 +1,5 @@
 import { samePosition } from '../types';
-import type { GapEdge, GridPosition, Player, PlayerCount, GameState, Wall } from '../types';
+import type { Direction, GapEdge, GridPosition, Player, PlayerCount, GameState, Wall } from '../types';
 import { BoardConfig, StartPositions2P, StartPositions4P, WallConfig } from '../constants';
 
 /** Orthogonal directions: up, down, left, right. */
@@ -8,7 +8,10 @@ const DIRECTIONS = [
     { row: 1, col: 0 },   // down
     { row: 0, col: -1 },  // left
     { row: 0, col: 1 },   // right
-];
+] as const;
+
+/** Goal directions per player in 4-player mode (also works for 2P subset). */
+const GOAL_DIRECTIONS: readonly Direction[] = ['up', 'right', 'down', 'left'];
 
 /**
  * Pure game logic for Corridor (Quoridor).
@@ -224,10 +227,9 @@ export class GameLogic {
         // 1. Check wall count
         if (state.wallCounts[state.currentPlayer] <= 0) return false;
 
-        // 2. Check bounds (valid anchors are 0..7 for both row and col)
-        const maxIdx = BoardConfig.GRID_SIZE - 2; // 7
-        if (wall.row < 0 || wall.row > maxIdx ||
-            wall.col < 0 || wall.col > maxIdx) {
+        // 2. Check bounds (valid anchors are 0..WALL_MAX_INDEX)
+        if (wall.row < 0 || wall.row > BoardConfig.WALL_MAX_INDEX ||
+            wall.col < 0 || wall.col > BoardConfig.WALL_MAX_INDEX) {
             return false;
         }
 
@@ -440,5 +442,18 @@ export class GameLogic {
             }
         }
         return null;
+    }
+
+    /**
+     * Gets the goal direction for a player.
+     *
+     * 2-player mode: P0 up, P1 down.
+     * 4-player mode (clockwise from bottom): P0 up, P1 right, P2 down, P3 left.
+     */
+    static getGoalDirection(player: Player, playerCount: PlayerCount): Direction {
+        if (playerCount === 2) {
+            return player === 0 ? 'up' : 'down';
+        }
+        return GOAL_DIRECTIONS[player];
     }
 }

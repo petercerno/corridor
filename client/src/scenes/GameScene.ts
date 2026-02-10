@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { BoardConfig, ColorConfig, GraphicsConfig, isDarkMode, PlayerConfig, toggleTheme, UIConfig } from '../constants';
+import { BoardConfig, getColors, GraphicsConfig, isDarkMode, PlayerConfig, toggleTheme, UIConfig } from '../constants';
 import { GameLogic } from '../logic/GameLogic';
 import { gridToWorld, gridToWorldCenter, worldToGap, worldToGrid } from '../logic/coordinates';
 import { samePosition, sameGapEdge } from '../types';
@@ -37,12 +37,6 @@ export default class GameScene extends Phaser.Scene {
     /** Graphics object for the player status indicator. */
     private statusGraphics!: Phaser.GameObjects.Graphics;
 
-    /** Graphics object for the wall count background. */
-    private wallCountBg!: Phaser.GameObjects.Graphics;
-
-    /** Text showing the current player's remaining wall count. */
-    private wallCountText!: Phaser.GameObjects.Text;
-
     /** Computed button width (shared by all buttons and the status indicator). */
     private btnWidth = 0;
 
@@ -55,8 +49,8 @@ export default class GameScene extends Phaser.Scene {
     /** Theme button text reference (for updating label on toggle). */
     private themeButtonText!: Phaser.GameObjects.Text;
 
-    /** All button components for theme refresh. */
-    private buttons: { bg: Phaser.GameObjects.Graphics; text: Phaser.GameObjects.Text; drawBg: (color: number) => void }[] = [];
+    /** All UI components (buttons + wall count) for theme refresh. */
+    private uiComponents: { bg: Phaser.GameObjects.Graphics; text: Phaser.GameObjects.Text; drawBg: (color: number) => void }[] = [];
 
     // --- Wall placement state ---
 
@@ -65,6 +59,9 @@ export default class GameScene extends Phaser.Scene {
 
     /** The two candidate wall placements after clicking the first gap. */
     private wallOptions: Wall[] = [];
+
+    /** Text showing the current player's remaining wall count. */
+    private wallCountText!: Phaser.GameObjects.Text;
 
     constructor() {
         super({ key: 'GameScene' });
@@ -111,6 +108,8 @@ export default class GameScene extends Phaser.Scene {
      * Creates UI elements.
      */
     private setupUI(): void {
+        const colors = getColors();
+
         // Player status indicator (circle with direction triangle)
         this.statusGraphics = this.add.graphics();
 
@@ -119,12 +118,17 @@ export default class GameScene extends Phaser.Scene {
         this.btnHeight = BoardConfig.CELL_SIZE;
         const btnY = BoardConfig.BOARD_Y - BoardConfig.CELL_SIZE - BoardConfig.GAP_SIZE;
 
-        // Wall count indicator (next to player indicator)
-        this.wallCountBg = this.add.graphics();
-        this.wallCountBg.setDepth(0);
+        // Wall count indicator (next to player indicator), treated as a UI component
         const wallBgX = BoardConfig.BOARD_X + this.btnWidth + BoardConfig.GAP_SIZE;
-        this.wallCountBg.fillStyle(ColorConfig.BUTTON_BG);
-        this.wallCountBg.fillRoundedRect(wallBgX, btnY, this.btnWidth, this.btnHeight, UIConfig.BUTTON_CORNER_RADIUS);
+        const wallBg = this.add.graphics();
+        wallBg.setDepth(0);
+        const drawWallBg = (color: number) => {
+            wallBg.clear();
+            wallBg.fillStyle(color);
+            wallBg.fillRoundedRect(wallBgX, btnY, this.btnWidth, this.btnHeight, UIConfig.BUTTON_CORNER_RADIUS);
+        };
+        drawWallBg(colors.BUTTON_BG);
+
         this.wallCountText = this.add.text(
             wallBgX + this.btnWidth / 2,
             btnY + this.btnHeight / 2,
@@ -132,12 +136,15 @@ export default class GameScene extends Phaser.Scene {
             {
                 fontSize: UIConfig.BUTTON_FONT_SIZE,
                 fontFamily: UIConfig.FONT_FAMILY,
-                color: ColorConfig.UI_TEXT_STR,
+                color: colors.UI_TEXT_STR,
                 align: 'center',
             }
         );
         this.wallCountText.setOrigin(0.5, 0.5);
         this.wallCountText.setDepth(1);
+
+        // Track wall count indicator as a UI component for theme refresh
+        this.uiComponents.push({ bg: wallBg, text: this.wallCountText, drawBg: drawWallBg });
 
         // Add buttons right-to-left from the board's right edge
         const gap = BoardConfig.GAP_SIZE;
@@ -160,6 +167,7 @@ export default class GameScene extends Phaser.Scene {
      * @returns The button's text object (for label updates).
      */
     private createButton(rightEdge: number, label: string, onClick: () => void): Phaser.GameObjects.Text {
+        const colors = getColors();
         const width = this.btnWidth;
         const height = this.btnHeight;
         const radius = UIConfig.BUTTON_CORNER_RADIUS;
@@ -176,27 +184,27 @@ export default class GameScene extends Phaser.Scene {
             bg.fillStyle(color);
             bg.fillRoundedRect(bgX, bgY, width, height, radius);
         };
-        drawBg(ColorConfig.BUTTON_BG);
+        drawBg(colors.BUTTON_BG);
 
         // Create centered text with internal padding for subscript clipping
         const text = this.add.text(cx, cy, label, {
             fontSize: UIConfig.BUTTON_FONT_SIZE,
             fontFamily: UIConfig.FONT_FAMILY,
-            color: ColorConfig.UI_TEXT_STR,
+            color: colors.UI_TEXT_STR,
             padding: { top: UIConfig.BUTTON_PADDING_Y, bottom: UIConfig.BUTTON_PADDING_Y, left: 0, right: 0 },
         });
         text.setOrigin(0.5, 0.5);
         text.setDepth(1);
 
         // Track button components for theme refresh
-        this.buttons.push({ bg, text, drawBg });
+        this.uiComponents.push({ bg, text, drawBg });
 
         // Interactive hit area over the background
         const hitZone = this.add.zone(cx, cy, width, height);
         hitZone.setInteractive({ useHandCursor: true });
         hitZone.on('pointerdown', onClick);
-        hitZone.on('pointerover', () => drawBg(ColorConfig.BUTTON_HOVER));
-        hitZone.on('pointerout', () => drawBg(ColorConfig.BUTTON_BG));
+        hitZone.on('pointerover', () => drawBg(getColors().BUTTON_HOVER));
+        hitZone.on('pointerout', () => drawBg(getColors().BUTTON_BG));
 
         return text;
     }
@@ -218,11 +226,12 @@ export default class GameScene extends Phaser.Scene {
      * Draws the game board with wooden squares and gaps.
      */
     private drawBoard(): void {
+        const colors = getColors();
         const g = this.boardGraphics;
         g.clear();
 
         // Draw board background (gap color)
-        g.fillStyle(ColorConfig.GAP_COLOR);
+        g.fillStyle(colors.GAP_COLOR);
         g.fillRect(
             BoardConfig.BOARD_X,
             BoardConfig.BOARD_Y,
@@ -242,6 +251,7 @@ export default class GameScene extends Phaser.Scene {
      * Draws a single square at the given grid position.
      */
     private drawSquare(pos: GridPosition): void {
+        const colors = getColors();
         const g = this.boardGraphics;
         const { x, y } = gridToWorld(pos);
         const size = BoardConfig.CELL_SIZE;
@@ -250,10 +260,10 @@ export default class GameScene extends Phaser.Scene {
 
         // Alternate colors for checkerboard pattern (subtle)
         const isLight = (pos.row + pos.col) % 2 === 0;
-        const fillColor = isLight ? ColorConfig.SQUARE_LIGHT : ColorConfig.SQUARE_DARK;
+        const fillColor = isLight ? colors.SQUARE_LIGHT : colors.SQUARE_DARK;
 
         // Draw shadow (bottom-right offset)
-        g.fillStyle(ColorConfig.SQUARE_BORDER, 0.5);
+        g.fillStyle(colors.SQUARE_BORDER, 0.5);
         g.fillRoundedRect(
             x + shadowOffset,
             y + shadowOffset,
@@ -278,11 +288,12 @@ export default class GameScene extends Phaser.Scene {
      * Draws all placed walls on the board.
      */
     private drawWalls(): void {
+        const colors = getColors();
         const g = this.wallGraphics;
         g.clear();
 
         for (const wall of this.gameState.walls) {
-            this.drawWall(g, wall, ColorConfig.WALL_COLOR, 1.0);
+            this.drawWall(g, wall, colors.WALL_COLOR, 1.0);
         }
     }
 
@@ -348,14 +359,13 @@ export default class GameScene extends Phaser.Scene {
      * Draws wall placement previews for the current wall options.
      */
     private drawWallPreviews(): void {
+        const colors = getColors();
         const g = this.wallPreviewGraphics;
         g.clear();
 
         for (const wall of this.wallOptions) {
-            const isValid = GameLogic.isValidWallPlacement(this.gameState, wall);
-            const color = isValid ? ColorConfig.WALL_PREVIEW : ColorConfig.WALL_INVALID;
-            const alpha = isValid ? ColorConfig.WALL_PREVIEW_ALPHA : ColorConfig.WALL_INVALID_ALPHA;
-            this.drawWall(g, wall, color, alpha);
+            if (!GameLogic.isValidWallPlacement(this.gameState, wall)) continue;
+            this.drawWall(g, wall, colors.WALL_PREVIEW, colors.WALL_PREVIEW_ALPHA);
         }
     }
 
@@ -428,7 +438,8 @@ export default class GameScene extends Phaser.Scene {
         player: Player, sizeOverride?: number
     ): void {
         const size = sizeOverride ?? GraphicsConfig.PAWN_RADIUS * 0.5;
-        const angle = GameScene.DIRECTION_ANGLES[this.getGoalDirection(player)];
+        const direction = GameLogic.getGoalDirection(player, this.gameState.playerCount);
+        const angle = GameScene.DIRECTION_ANGLES[direction];
 
         // Base triangle pointing up: tip, bottom-left, bottom-right
         const basePoints = [
@@ -454,26 +465,11 @@ export default class GameScene extends Phaser.Scene {
         g.fillPath();
     }
 
-    /** Goal directions per player in 4-player mode (also works for 2P subset). */
-    private static readonly GOAL_DIRECTIONS: Direction[] = ['up', 'right', 'down', 'left'];
-
-    /**
-     * Gets the goal direction for a player.
-     *
-     * 2-player mode: P0 up, P1 down.
-     * 4-player mode (clockwise from bottom): P0 up, P1 right, P2 down, P3 left.
-     */
-    private getGoalDirection(player: Player): Direction {
-        if (this.gameState.playerCount === 2) {
-            return player === 0 ? 'up' : 'down';
-        }
-        return GameScene.GOAL_DIRECTIONS[player];
-    }
-
     /**
      * Draws highlights on valid move targets.
      */
     private drawValidMoveHighlights(): void {
+        const colors = getColors();
         const g = this.highlightGraphics;
         g.clear();
 
@@ -481,11 +477,11 @@ export default class GameScene extends Phaser.Scene {
             const center = gridToWorldCenter(move);
 
             // Draw semi-transparent circle
-            g.fillStyle(ColorConfig.VALID_MOVE, ColorConfig.VALID_MOVE_ALPHA);
+            g.fillStyle(colors.VALID_MOVE, colors.VALID_MOVE_ALPHA);
             g.fillCircle(center.x, center.y, GraphicsConfig.PAWN_RADIUS * GraphicsConfig.VALID_MOVE_SIZE);
 
             // Draw ring outline
-            g.lineStyle(GraphicsConfig.VALID_MOVE_RING_WIDTH, ColorConfig.VALID_MOVE, GraphicsConfig.VALID_MOVE_RING_ALPHA);
+            g.lineStyle(GraphicsConfig.VALID_MOVE_RING_WIDTH, colors.VALID_MOVE, GraphicsConfig.VALID_MOVE_RING_ALPHA);
             g.strokeCircle(center.x, center.y, GraphicsConfig.PAWN_RADIUS * GraphicsConfig.VALID_MOVE_SIZE);
         }
     }
@@ -499,7 +495,7 @@ export default class GameScene extends Phaser.Scene {
      */
     private handleClick(pos: WorldPosition): void {
         // Ignore clicks if game is over
-        if (this.gameState.winner) {
+        if (this.gameState.winner != null) {
             return;
         }
 
@@ -657,6 +653,8 @@ export default class GameScene extends Phaser.Scene {
             this.moveHistory.push(this.gameState);
             this.gameState = newState;
             this.refreshAfterStateChange();
+        } else {
+            this.deselectPawn();
         }
     }
 
@@ -669,6 +667,7 @@ export default class GameScene extends Phaser.Scene {
      * with the current player's colored circle and direction triangle.
      */
     private updateStatusIndicator(): void {
+        const colors = getColors();
         const g = this.statusGraphics;
         g.clear();
 
@@ -684,8 +683,8 @@ export default class GameScene extends Phaser.Scene {
 
         // Draw button-style rounded-rect background (green when a player has won)
         const bgColor = this.gameState.winner != null
-            ? ColorConfig.WINNER_BG
-            : ColorConfig.BUTTON_BG;
+            ? colors.WINNER_BG
+            : colors.BUTTON_BG;
         g.fillStyle(bgColor);
         g.fillRoundedRect(bgX, bgY, width, height, radius);
 
@@ -699,7 +698,7 @@ export default class GameScene extends Phaser.Scene {
         g.strokeCircle(cx, cy, circleRadius);
 
         // Draw direction triangle
-        this.drawDirectionTriangle(g, cx, cy, player, circleRadius * 0.65);
+        this.drawDirectionTriangle(g, cx, cy, player, circleRadius * 0.5);
 
         // Update wall count text
         const wallCount = this.gameState.wallCounts[player];
@@ -734,23 +733,16 @@ export default class GameScene extends Phaser.Scene {
      */
     private handleToggleTheme(): void {
         toggleTheme();
-        this.cameras.main.setBackgroundColor(ColorConfig.BOARD_BG_STR);
-        document.body.style.backgroundColor = ColorConfig.BOARD_BG_STR;
+        const colors = getColors();
+        this.cameras.main.setBackgroundColor(colors.BOARD_BG_STR);
+        document.body.style.backgroundColor = colors.BOARD_BG_STR;
         this.themeButtonText.setText(isDarkMode() ? '☼' : '☾');
 
-        // Refresh all button backgrounds and text colors
-        for (const btn of this.buttons) {
-            btn.drawBg(ColorConfig.BUTTON_BG);
-            btn.text.setColor(ColorConfig.UI_TEXT_STR);
+        // Refresh all UI component backgrounds and text colors
+        for (const comp of this.uiComponents) {
+            comp.drawBg(colors.BUTTON_BG);
+            comp.text.setColor(colors.UI_TEXT_STR);
         }
-
-        // Refresh wall count indicator
-        this.wallCountBg.clear();
-        const wallBgX = BoardConfig.BOARD_X + this.btnWidth + BoardConfig.GAP_SIZE;
-        const btnY = BoardConfig.BOARD_Y - BoardConfig.CELL_SIZE - BoardConfig.GAP_SIZE;
-        this.wallCountBg.fillStyle(ColorConfig.BUTTON_BG);
-        this.wallCountBg.fillRoundedRect(wallBgX, btnY, this.btnWidth, this.btnHeight, UIConfig.BUTTON_CORNER_RADIUS);
-        this.wallCountText.setColor(ColorConfig.UI_TEXT_STR);
 
         // Redraw board and game elements
         this.drawBoard();

@@ -4,11 +4,12 @@
  */
 import Phaser from 'phaser';
 import GameScene from './scenes/GameScene';
-import { BoardConfig, ColorConfig, initTheme } from './constants';
+import { BoardConfig, getColors, initTheme } from './constants';
 
 // Initialize theme based on system preference before creating the game
 initTheme();
-document.body.style.backgroundColor = ColorConfig.BOARD_BG_STR;
+const colors = getColors();
+document.body.style.backgroundColor = colors.BOARD_BG_STR;
 
 const config: Phaser.Types.Core.GameConfig = {
     type: Phaser.AUTO,
@@ -19,7 +20,7 @@ const config: Phaser.Types.Core.GameConfig = {
         autoCenter: Phaser.Scale.CENTER_BOTH
     },
     parent: 'app',
-    backgroundColor: ColorConfig.BOARD_BG_STR,
+    backgroundColor: colors.BOARD_BG_STR,
     scene: [GameScene],
     fps: {
         limit: 10 // Sufficient for a turn-based board game; reduces idle CPU usage.
