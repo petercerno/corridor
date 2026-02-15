@@ -10,8 +10,13 @@ import type { Direction, GapEdge, GridPosition, GameState, Player, Wall, WorldPo
  * Manages the game board, pawn rendering, wall placement, and player input.
  */
 export default class GameScene extends Phaser.Scene {
+
+    // --- Game state ---
+
     /** Current game state. */
     private gameState!: GameState;
+
+    // --- Graphics layers (z-order) ---
 
     /** Graphics object for the board. */
     private boardGraphics!: Phaser.GameObjects.Graphics;
@@ -22,17 +27,13 @@ export default class GameScene extends Phaser.Scene {
     /** Graphics object for wall placement previews. */
     private wallPreviewGraphics!: Phaser.GameObjects.Graphics;
 
-    /** Graphics object for pawns. */
-    private pawnGraphics!: Phaser.GameObjects.Graphics;
-
     /** Graphics object for valid move highlights. */
     private highlightGraphics!: Phaser.GameObjects.Graphics;
 
-    /** Currently selected pawn's player, or null if none selected. */
-    private selectedPlayer: Player | null = null;
+    /** Graphics object for pawns. */
+    private pawnGraphics!: Phaser.GameObjects.Graphics;
 
-    /** Valid moves for the selected pawn. */
-    private validMoves: GridPosition[] = [];
+    // --- UI references ---
 
     /** Graphics object for the player status indicator. */
     private statusGraphics!: Phaser.GameObjects.Graphics;
@@ -43,16 +44,22 @@ export default class GameScene extends Phaser.Scene {
     /** Computed button height (shared by all buttons and the status indicator). */
     private btnHeight = 0;
 
-    /** Stack of previous game states for undo (cleared on game reset). */
-    private moveHistory: GameState[] = [];
-
     /** Theme button text reference (for updating label on toggle). */
     private themeButtonText!: Phaser.GameObjects.Text;
+
+    /** Text showing the current player's remaining wall count. */
+    private wallCountText!: Phaser.GameObjects.Text;
 
     /** All UI components (buttons + wall count) for theme refresh. */
     private uiComponents: { bg: Phaser.GameObjects.Graphics; text: Phaser.GameObjects.Text; drawBg: (color: number) => void }[] = [];
 
-    // --- Wall placement state ---
+    // --- Interaction state ---
+
+    /** Currently selected pawn's player, or null if none selected. */
+    private selectedPlayer: Player | null = null;
+
+    /** Valid moves for the selected pawn. */
+    private validMoves: GridPosition[] = [];
 
     /** The first gap edge selected during wall placement. */
     private wallFirstEdge: GapEdge | null = null;
@@ -60,8 +67,20 @@ export default class GameScene extends Phaser.Scene {
     /** The two candidate wall placements after clicking the first gap. */
     private wallOptions: Wall[] = [];
 
-    /** Text showing the current player's remaining wall count. */
-    private wallCountText!: Phaser.GameObjects.Text;
+    // --- History ---
+
+    /** Stack of previous game states for undo (cleared on game reset). */
+    private moveHistory: GameState[] = [];
+
+    // --- Constants ---
+
+    /** Angle offsets for each direction (radians, 0 = up). */
+    private static readonly DIRECTION_ANGLES: Record<Direction, number> = {
+        up: 0,
+        right: Math.PI / 2,
+        down: Math.PI,
+        left: -Math.PI / 2,
+    };
 
     constructor() {
         super({ key: 'GameScene' });
@@ -94,7 +113,7 @@ export default class GameScene extends Phaser.Scene {
 
     /**
      * Creates graphics objects for rendering.
-     * Order determines z-layering: board → walls → highlights/previews → pawns.
+     * Order determines z-layering: board → walls → previews → highlights → pawns.
      */
     private setupGraphics(): void {
         this.boardGraphics = this.add.graphics();
@@ -161,10 +180,7 @@ export default class GameScene extends Phaser.Scene {
     /**
      * Creates a styled button with a rounded-rectangle background.
      * Buttons are cell-sized squares aligned with the board's top row.
-     * @param rightEdge Right edge x-coordinate of the button.
-     * @param label Button text label.
-     * @param onClick Click handler.
-     * @returns The button's text object (for label updates).
+     * Returns the button's text object (for label updates).
      */
     private createButton(rightEdge: number, label: string, onClick: () => void): Phaser.GameObjects.Text {
         const colors = getColors();
@@ -223,7 +239,7 @@ export default class GameScene extends Phaser.Scene {
     // =========================================================================
 
     /**
-     * Draws the game board with wooden squares and gaps.
+     * Draws the game board with squares and gaps.
      */
     private drawBoard(): void {
         const colors = getColors();
@@ -244,6 +260,16 @@ export default class GameScene extends Phaser.Scene {
             for (let col = 0; col < BoardConfig.GRID_SIZE; col++) {
                 this.drawSquare({ row, col });
             }
+        }
+
+        // Draw border around current player's square (only during active game)
+        if (this.gameState.winner == null) {
+            const currentPos = this.gameState.pawns[this.gameState.currentPlayer];
+            const { x, y } = gridToWorld(currentPos);
+            const size = BoardConfig.CELL_SIZE;
+            const radius = GraphicsConfig.SQUARE_CORNER_RADIUS;
+            g.lineStyle(GraphicsConfig.CURRENT_PLAYER_BORDER_WIDTH, colors.CURRENT_PLAYER_BORDER);
+            g.strokeRoundedRect(x, y, size, size, radius);
         }
     }
 
@@ -288,12 +314,15 @@ export default class GameScene extends Phaser.Scene {
      * Draws all placed walls on the board.
      */
     private drawWalls(): void {
-        const colors = getColors();
         const g = this.wallGraphics;
         g.clear();
 
+        const dark = isDarkMode();
         for (const wall of this.gameState.walls) {
-            this.drawWall(g, wall, colors.WALL_COLOR, 1.0);
+            const wallColor = wall.player != null
+                ? PlayerConfig[wall.player][dark ? 'wallColorDark' : 'wallColorLight']
+                : getColors().GAP_COLOR;
+            this.drawWall(g, wall, wallColor, 1.0);
         }
     }
 
@@ -333,15 +362,16 @@ export default class GameScene extends Phaser.Scene {
         }
 
         // Draw shadow
-        g.fillStyle(0x000000, 0.3 * alpha);
-        g.fillRoundedRect(x + 2, y + 2, w, h, cornerRadius);
+        const so = GraphicsConfig.WALL_SHADOW_OFFSET;
+        g.fillStyle(0x000000, GraphicsConfig.WALL_SHADOW_ALPHA * alpha);
+        g.fillRoundedRect(x + so, y + so, w, h, cornerRadius);
 
         // Draw wall body
         g.fillStyle(color, alpha);
         g.fillRoundedRect(x, y, w, h, cornerRadius);
 
         // Draw highlight line on top
-        g.lineStyle(1, 0xffffff, 0.3 * alpha);
+        g.lineStyle(1, 0xffffff, GraphicsConfig.WALL_HIGHLIGHT_ALPHA * alpha);
         if (wall.orientation === 'horizontal') {
             g.beginPath();
             g.moveTo(x + cornerRadius, y);
@@ -420,13 +450,6 @@ export default class GameScene extends Phaser.Scene {
         this.drawDirectionTriangle(g, center.x, center.y, player);
     }
 
-    /** Angle offsets for each direction (radians, 0 = up). */
-    private static readonly DIRECTION_ANGLES: Record<Direction, number> = {
-        up: 0,
-        right: Math.PI / 2,
-        down: Math.PI,
-        left: -Math.PI / 2,
-    };
 
     /**
      * Draws a small triangle inside the pawn pointing to the goal direction.
@@ -437,15 +460,17 @@ export default class GameScene extends Phaser.Scene {
         g: Phaser.GameObjects.Graphics, cx: number, cy: number,
         player: Player, sizeOverride?: number
     ): void {
-        const size = sizeOverride ?? GraphicsConfig.PAWN_RADIUS * 0.5;
+        const size = sizeOverride ?? GraphicsConfig.PAWN_RADIUS * GraphicsConfig.DIRECTION_TRIANGLE_SIZE;
         const direction = GameLogic.getGoalDirection(player, this.gameState.playerCount);
         const angle = GameScene.DIRECTION_ANGLES[direction];
 
         // Base triangle pointing up: tip, bottom-left, bottom-right
+        const tw = GraphicsConfig.DIRECTION_TRIANGLE_WIDTH;
+        const th = GraphicsConfig.DIRECTION_TRIANGLE_HEIGHT;
         const basePoints = [
             { x: 0, y: -size },
-            { x: -size * 0.7, y: size * 0.5 },
-            { x: size * 0.7, y: size * 0.5 },
+            { x: -size * tw, y: size * th },
+            { x: size * tw, y: size * th },
         ];
 
         // Rotate each point and translate to center
@@ -456,7 +481,7 @@ export default class GameScene extends Phaser.Scene {
             y: cy + p.x * sin + p.y * cos,
         }));
 
-        g.fillStyle(0xffffff, 0.5);
+        g.fillStyle(0xffffff, GraphicsConfig.DIRECTION_TRIANGLE_ALPHA);
         g.beginPath();
         g.moveTo(points[0].x, points[0].y);
         g.lineTo(points[1].x, points[1].y);
@@ -689,16 +714,16 @@ export default class GameScene extends Phaser.Scene {
         g.fillRoundedRect(bgX, bgY, width, height, radius);
 
         // Draw player-colored circle inside
-        const circleRadius = Math.min(width, height) * 0.35;
+        const circleRadius = Math.min(width, height) * GraphicsConfig.STATUS_CIRCLE_RATIO;
         g.fillStyle(fillColor);
         g.fillCircle(cx, cy, circleRadius);
 
         // Draw outline
-        g.lineStyle(3, strokeColor);
+        g.lineStyle(GraphicsConfig.STATUS_CIRCLE_STROKE_WIDTH, strokeColor);
         g.strokeCircle(cx, cy, circleRadius);
 
         // Draw direction triangle
-        this.drawDirectionTriangle(g, cx, cy, player, circleRadius * 0.5);
+        this.drawDirectionTriangle(g, cx, cy, player, circleRadius * GraphicsConfig.STATUS_TRIANGLE_SIZE);
 
         // Update wall count text
         const wallCount = this.gameState.wallCounts[player];
@@ -723,6 +748,14 @@ export default class GameScene extends Phaser.Scene {
     private refreshAfterStateChange(): void {
         this.cancelWallPlacement();
         this.deselectPawn();
+        this.redrawAll();
+    }
+
+    /**
+     * Redraws all visual elements: board, walls, pawns, and status indicator.
+     */
+    private redrawAll(): void {
+        this.drawBoard();
         this.drawWalls();
         this.drawPawns();
         this.updateStatusIndicator();
@@ -745,15 +778,11 @@ export default class GameScene extends Phaser.Scene {
         }
 
         // Redraw board and game elements
-        this.drawBoard();
-        this.drawWalls();
-        this.drawPawns();
-        this.updateStatusIndicator();
+        this.redrawAll();
     }
 
     /**
      * Resets the game to initial state.
-     * @param playerCount Number of players (2 or 4).
      */
     private resetGame(playerCount: 2 | 4): void {
         this.gameState = GameLogic.getInitialState(playerCount);

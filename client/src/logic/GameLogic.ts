@@ -26,7 +26,6 @@ export class GameLogic {
 
     /**
      * Creates the initial game state with pawns at starting positions.
-     * @param playerCount Number of players (2 or 4).
      */
     static getInitialState(playerCount: PlayerCount = 2): GameState {
         const startPositions = playerCount === 2 ? StartPositions2P : StartPositions4P;
@@ -203,7 +202,7 @@ export class GameLogic {
         return {
             playerCount: state.playerCount,
             pawns: newPawns,
-            walls: state.walls,
+            walls: [...state.walls],
             wallCounts: [...state.wallCounts],
             currentPlayer: winner ? state.currentPlayer : nextPlayer,
             winner,
@@ -289,7 +288,7 @@ export class GameLogic {
         return {
             playerCount: state.playerCount,
             pawns: state.pawns.map(pos => ({ ...pos })),
-            walls: [...state.walls, { ...wall }],
+            walls: [...state.walls, { ...wall, player: state.currentPlayer }],
             wallCounts: newWallCounts,
             currentPlayer: nextPlayer,
             winner: null,
@@ -389,10 +388,10 @@ export class GameLogic {
      *
      * 2-player mode:
      *   P0 starts bottom → goal is top row (row 0)
-     *   P1 starts top → goal is bottom row (row 8)
+     *   P1 starts top → goal is bottom row (row GRID_SIZE - 1)
      *
      * 4-player mode (clockwise from bottom):
-     *   P0 → row 0, P1 → col 8, P2 → row 8, P3 → col 0
+     *   P0 → row 0, P1 → col GRID_SIZE - 1, P2 → row GRID_SIZE - 1, P3 → col 0
      */
     private static isGoal(pos: GridPosition, player: Player, playerCount: PlayerCount): boolean {
         if (playerCount === 2) {
@@ -427,12 +426,12 @@ export class GameLogic {
      *
      * 2-player mode:
      *   Player 0: starts bottom → wins by reaching top row (row 0)
-     *   Player 1: starts top → wins by reaching bottom row (row 8)
+     *   Player 1: starts top → wins by reaching bottom row (row GRID_SIZE - 1)
      *
      * 4-player mode (clockwise from bottom):
      *   Player 0: starts bottom → wins by reaching top row (row 0)
-     *   Player 1: starts left → wins by reaching right column (col 8)
-     *   Player 2: starts top → wins by reaching bottom row (row 8)
+     *   Player 1: starts left → wins by reaching right column (col GRID_SIZE - 1)
+     *   Player 2: starts top → wins by reaching bottom row (row GRID_SIZE - 1)
      *   Player 3: starts right → wins by reaching left column (col 0)
      */
     static checkWinner(pawns: GridPosition[], playerCount: PlayerCount): Player | null {

@@ -25,8 +25,8 @@ export type PlayerCount = 2 | 4;
 
 /**
  * Represents the possible players in the game (0-indexed).
- * Player 0 starts at the bottom, Player 1 starts at the top.
- * In 4-player mode (clockwise from bottom):
+ * 2-player mode: Player 0 bottom, Player 1 top.
+ * 4-player mode (clockwise from bottom):
  * Player 0: bottom, Player 1: left, Player 2: top, Player 3: right.
  */
 export type Player = 0 | 1 | 2 | 3;
@@ -50,6 +50,8 @@ export interface Wall {
     row: number;
     col: number;
     orientation: WallOrientation;
+    /** The player who placed this wall (set when placed, absent for candidates). */
+    player?: Player;
 }
 
 /**

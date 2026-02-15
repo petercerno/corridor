@@ -45,13 +45,13 @@ interface ColorPalette {
     GAP_COLOR: string;
     VALID_MOVE: string;
     VALID_MOVE_ALPHA: number;
-    WALL_COLOR: string;
     WALL_PREVIEW: string;
     WALL_PREVIEW_ALPHA: number;
     UI_TEXT: string;
     BUTTON_BG: string;
     BUTTON_HOVER: string;
     WINNER_BG: string;
+    CURRENT_PLAYER_BORDER: string;
 }
 
 /**
@@ -65,13 +65,13 @@ const LIGHT_COLORS: ColorPalette = {
     GAP_COLOR: '#dddddd',
     VALID_MOVE: '#008000',
     VALID_MOVE_ALPHA: 0.5,
-    WALL_COLOR: '#444444',
     WALL_PREVIEW: '#80c080',
     WALL_PREVIEW_ALPHA: 0.6,
     UI_TEXT: '#333333',
     BUTTON_BG: '#bbbbbb',
     BUTTON_HOVER: '#999999',
     WINNER_BG: '#44ff44',
+    CURRENT_PLAYER_BORDER: '#0000cc',
 };
 
 /**
@@ -85,13 +85,13 @@ const DARK_COLORS: ColorPalette = {
     GAP_COLOR: '#333333',
     VALID_MOVE: '#00cc00',
     VALID_MOVE_ALPHA: 0.5,
-    WALL_COLOR: '#cccccc',
     WALL_PREVIEW: '#80c080',
     WALL_PREVIEW_ALPHA: 0.6,
     UI_TEXT: '#ffffff',
     BUTTON_BG: '#555555',
     BUTTON_HOVER: '#777777',
     WINNER_BG: '#004400',
+    CURRENT_PLAYER_BORDER: '#0080ff',
 };
 
 /**
@@ -107,7 +107,6 @@ interface ParsedColors {
     GAP_COLOR: number;
     VALID_MOVE: number;
     VALID_MOVE_ALPHA: number;
-    WALL_COLOR: number;
     WALL_PREVIEW: number;
     WALL_PREVIEW_ALPHA: number;
     UI_TEXT_STR: string;
@@ -116,6 +115,7 @@ interface ParsedColors {
     BUTTON_HOVER: number;
     BUTTON_HOVER_STR: string;
     WINNER_BG: number;
+    CURRENT_PLAYER_BORDER: number;
 }
 
 /**
@@ -132,7 +132,6 @@ function buildColors(palette: ColorPalette): ParsedColors {
         GAP_COLOR: parseColor(palette.GAP_COLOR),
         VALID_MOVE: parseColor(palette.VALID_MOVE),
         VALID_MOVE_ALPHA: palette.VALID_MOVE_ALPHA,
-        WALL_COLOR: parseColor(palette.WALL_COLOR),
         WALL_PREVIEW: parseColor(palette.WALL_PREVIEW),
         WALL_PREVIEW_ALPHA: palette.WALL_PREVIEW_ALPHA,
         UI_TEXT_STR: palette.UI_TEXT,
@@ -141,6 +140,7 @@ function buildColors(palette: ColorPalette): ParsedColors {
         BUTTON_HOVER: parseColor(palette.BUTTON_HOVER),
         BUTTON_HOVER_STR: palette.BUTTON_HOVER,
         WINNER_BG: parseColor(palette.WINNER_BG),
+        CURRENT_PLAYER_BORDER: parseColor(palette.CURRENT_PLAYER_BORDER),
     };
 }
 
@@ -194,10 +194,22 @@ export const toggleTheme = () => {
  * Contains base and selected fill colors.
  */
 export const PlayerConfig = [
-    { color: parseColor('#d03030'), selectedColor: parseColor('#ff8b8a') },
-    { color: parseColor('#3030d0'), selectedColor: parseColor('#5dade2') },
-    { color: parseColor('#308030'), selectedColor: parseColor('#5de250') },
-    { color: parseColor('#a05000'), selectedColor: parseColor('#ffb85a') },
+    {
+        color: parseColor('#d03030'), selectedColor: parseColor('#ff8b8a'),
+        wallColorLight: parseColor('#b03030'), wallColorDark: parseColor('#ff8080')
+    },
+    {
+        color: parseColor('#3030d0'), selectedColor: parseColor('#5dade2'),
+        wallColorLight: parseColor('#3030b0'), wallColorDark: parseColor('#8080ff')
+    },
+    {
+        color: parseColor('#308030'), selectedColor: parseColor('#5de250'),
+        wallColorLight: parseColor('#207020'), wallColorDark: parseColor('#80e080')
+    },
+    {
+        color: parseColor('#a05000'), selectedColor: parseColor('#ffb85a'),
+        wallColorLight: parseColor('#804000'), wallColorDark: parseColor('#ffb060')
+    },
 ];
 
 /**
@@ -234,6 +246,28 @@ export const GraphicsConfig = {
     WALL_THICKNESS: 20,
     /** Corner radius for wall rendering. */
     WALL_CORNER_RADIUS: 5,
+    /** Shadow offset for walls (X and Y). */
+    WALL_SHADOW_OFFSET: 2,
+    /** Shadow alpha for walls. */
+    WALL_SHADOW_ALPHA: 0.3,
+    /** Alpha for wall highlight line. */
+    WALL_HIGHLIGHT_ALPHA: 0.3,
+    /** Width ratio of direction triangle base relative to size. */
+    DIRECTION_TRIANGLE_WIDTH: 0.7,
+    /** Height ratio of direction triangle bottom relative to size. */
+    DIRECTION_TRIANGLE_HEIGHT: 0.5,
+    /** Alpha for direction triangle fill. */
+    DIRECTION_TRIANGLE_ALPHA: 0.5,
+    /** Default size of direction triangle relative to pawn radius. */
+    DIRECTION_TRIANGLE_SIZE: 0.5,
+    /** Radius of the status indicator circle relative to button size. */
+    STATUS_CIRCLE_RATIO: 0.35,
+    /** Stroke width for the status indicator circle outline. */
+    STATUS_CIRCLE_STROKE_WIDTH: 3,
+    /** Size of direction triangle in status indicator relative to circle radius. */
+    STATUS_TRIANGLE_SIZE: 0.5,
+    /** Border width for current player's square highlight. */
+    CURRENT_PLAYER_BORDER_WIDTH: 4,
 };
 
 /**
