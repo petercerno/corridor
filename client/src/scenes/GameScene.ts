@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { BoardConfig, getColors, GraphicsConfig, isDarkMode, PlayerConfig, toggleTheme, UIConfig } from '../constants';
 import { GameLogic } from '../logic/GameLogic';
-import { gridToWorld, gridToWorldCenter, worldToGap, worldToGrid } from '../logic/coordinates';
+import { gridToWorld, gridToWorldCenter, worldToGap, worldToGrid } from '../coordinates';
 import { samePosition, sameGapEdge } from '../types';
 import type { Direction, GapEdge, GridPosition, GameState, Player, Wall, WorldPosition } from '../types';
 

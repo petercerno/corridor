@@ -1,5 +1,5 @@
-import { BoardConfig } from '../constants';
-import type { GapEdge, GridPosition, WorldPosition } from '../types';
+import { BoardConfig } from './constants';
+import type { GapEdge, GridPosition, WorldPosition } from './types';
 
 /**
  * Converts grid coordinates to world (pixel) coordinates for the top-left of a cell.

@@ -225,9 +225,9 @@ export const GraphicsConfig = {
     /** Additional radius for selection glow effect. */
     PAWN_GLOW_RADIUS_OFFSET: 8,
     /** Shadow offset for pawn (X and Y). */
-    PAWN_SHADOW_OFFSET: 2,
+    PAWN_SHADOW_OFFSET: 4,
     /** Shadow alpha for pawn. */
-    PAWN_SHADOW_ALPHA: 0.3,
+    PAWN_SHADOW_ALPHA: 0.4,
     /** Corner radius for squares. */
     SQUARE_CORNER_RADIUS: 10,
     /** Shadow offset for 3D effect on squares. */
@@ -247,7 +247,7 @@ export const GraphicsConfig = {
     /** Corner radius for wall rendering. */
     WALL_CORNER_RADIUS: 5,
     /** Shadow offset for walls (X and Y). */
-    WALL_SHADOW_OFFSET: 2,
+    WALL_SHADOW_OFFSET: 4,
     /** Shadow alpha for walls. */
     WALL_SHADOW_ALPHA: 0.3,
     /** Alpha for wall highlight line. */
