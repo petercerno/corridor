@@ -98,3 +98,16 @@ export function samePosition(a: GridPosition, b: GridPosition): boolean {
 export function sameGapEdge(a: GapEdge, b: GapEdge): boolean {
     return samePosition(a.from, b.from) && samePosition(a.to, b.to);
 }
+
+/**
+ * Information about the current multiplayer room connection.
+ */
+export interface RoomInfo {
+    /** Name of the connected room. */
+    roomName: string;
+    /** Whether this client is the room owner (first to join). */
+    isRoomOwner: boolean;
+    /** Number of players currently in the room. */
+    playerCount: number;
+}
+

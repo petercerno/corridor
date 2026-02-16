@@ -330,7 +330,7 @@ export class GameLogic {
                 : { row: s, col: anchor, orientation };
 
         if (span - 1 >= 0) options.push(makeWall(span - 1));
-        if (span + 1 < BoardConfig.GRID_SIZE) options.push(makeWall(span));
+        if (span <= BoardConfig.WALL_MAX_INDEX) options.push(makeWall(span));
 
         return options;
     }

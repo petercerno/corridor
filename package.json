@@ -8,15 +8,25 @@
     },
     "scripts": {
         "dev": "vite client",
-        "build": "tsc -p client/tsconfig.json && vite build client",
-        "preview": "vite preview client"
+        "dev:all": "concurrently \"npm run server:dev\" \"npm run dev\"",
+        "server:dev": "tsx server/src/index.ts",
+        "build": "tsc -p client/tsconfig.json && vite build client && tsc -p server/tsconfig.json",
+        "preview": "vite preview client",
+        "start": "node server/dist/server/src/index.js"
     },
     "devDependencies": {
+        "@types/express": "^5.0.0",
         "@types/node": "^22.10.2",
+        "concurrently": "^9.1.2",
+        "tsx": "^4.19.0",
         "typescript": "~5.9.3",
         "vite": "^7.2.4"
     },
     "dependencies": {
-        "phaser": "^3.90.0"
+        "express": "^5.1.0",
+        "phaser": "^3.90.0",
+        "rate-limiter-flexible": "^5.0.0",
+        "socket.io": "^4.8.0",
+        "socket.io-client": "^4.8.0"
     }
 }

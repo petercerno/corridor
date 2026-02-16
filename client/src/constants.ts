@@ -44,9 +44,7 @@ interface ColorPalette {
     SQUARE_BORDER: string;
     GAP_COLOR: string;
     VALID_MOVE: string;
-    VALID_MOVE_ALPHA: number;
     WALL_PREVIEW: string;
-    WALL_PREVIEW_ALPHA: number;
     UI_TEXT: string;
     BUTTON_BG: string;
     BUTTON_HOVER: string;
@@ -64,9 +62,7 @@ const LIGHT_COLORS: ColorPalette = {
     SQUARE_BORDER: '#444444',
     GAP_COLOR: '#dddddd',
     VALID_MOVE: '#008000',
-    VALID_MOVE_ALPHA: 0.5,
     WALL_PREVIEW: '#80c080',
-    WALL_PREVIEW_ALPHA: 0.6,
     UI_TEXT: '#333333',
     BUTTON_BG: '#bbbbbb',
     BUTTON_HOVER: '#999999',
@@ -84,9 +80,7 @@ const DARK_COLORS: ColorPalette = {
     SQUARE_BORDER: '#222222',
     GAP_COLOR: '#333333',
     VALID_MOVE: '#00cc00',
-    VALID_MOVE_ALPHA: 0.5,
     WALL_PREVIEW: '#80c080',
-    WALL_PREVIEW_ALPHA: 0.6,
     UI_TEXT: '#ffffff',
     BUTTON_BG: '#555555',
     BUTTON_HOVER: '#777777',
@@ -106,9 +100,7 @@ interface ParsedColors {
     SQUARE_BORDER: number;
     GAP_COLOR: number;
     VALID_MOVE: number;
-    VALID_MOVE_ALPHA: number;
     WALL_PREVIEW: number;
-    WALL_PREVIEW_ALPHA: number;
     UI_TEXT_STR: string;
     BUTTON_BG: number;
     BUTTON_BG_STR: string;
@@ -131,9 +123,7 @@ function buildColors(palette: ColorPalette): ParsedColors {
         SQUARE_BORDER: parseColor(palette.SQUARE_BORDER),
         GAP_COLOR: parseColor(palette.GAP_COLOR),
         VALID_MOVE: parseColor(palette.VALID_MOVE),
-        VALID_MOVE_ALPHA: palette.VALID_MOVE_ALPHA,
         WALL_PREVIEW: parseColor(palette.WALL_PREVIEW),
-        WALL_PREVIEW_ALPHA: palette.WALL_PREVIEW_ALPHA,
         UI_TEXT_STR: palette.UI_TEXT,
         BUTTON_BG: parseColor(palette.BUTTON_BG),
         BUTTON_BG_STR: palette.BUTTON_BG,
@@ -236,12 +226,16 @@ export const GraphicsConfig = {
     SQUARE_HIGHLIGHT_WIDTH: 1,
     /** Alpha for square top highlight. */
     SQUARE_HIGHLIGHT_ALPHA: 0.2,
+    /** Alpha for valid move fill. */
+    VALID_MOVE_ALPHA: 0.5,
     /** Line width for valid move ring outline. */
     VALID_MOVE_RING_WIDTH: 2,
     /** Alpha for valid move ring outline. */
     VALID_MOVE_RING_ALPHA: 0.8,
     /** Size multiplier for valid move indicator. */
     VALID_MOVE_SIZE: 0.6,
+    /** Alpha for wall placement previews. */
+    WALL_PREVIEW_ALPHA: 0.6,
     /** Thickness of wall rendering in pixels. */
     WALL_THICKNESS: 20,
     /** Corner radius for wall rendering. */
@@ -316,3 +310,32 @@ export const StartPositions4P = [
     { row: 0, col: 4 },  // Player 2: top center
     { row: 4, col: 8 },  // Player 3: right center
 ];
+
+// ==================== Multiplayer Configuration ====================
+
+import { SOCKET_IO_PATH, ROOM_NAME_REGEX } from '@shared/constants';
+
+/**
+ * Determines the WebSocket server URL based on the current hostname.
+ * Returns empty string for localhost (same-origin connection), Cloud Run URL otherwise.
+ */
+const getServerUrl = (): string => {
+    const hostname = window.location.hostname;
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+        return ''; // Empty string = same origin (works for both dev and local prod)
+    }
+    return ''; // TODO: Set production server URL when deploying
+};
+
+/**
+ * Configuration for multiplayer functionality.
+ */
+export const MultiplayerConfig = {
+    /** WebSocket server URL. Uses same-origin for localhost. */
+    get SERVER_URL() { return getServerUrl(); },
+    /** Socket.IO path (from shared constants). */
+    SOCKET_PATH: SOCKET_IO_PATH,
+    /** Pattern for valid room names (letters, numbers, and hyphens only). */
+    ROOM_NAME_PATTERN: ROOM_NAME_REGEX,
+};
+

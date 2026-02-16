@@ -2,12 +2,14 @@ import Phaser from 'phaser';
 import { BoardConfig, getColors, GraphicsConfig, isDarkMode, PlayerConfig, toggleTheme, UIConfig } from '../constants';
 import { GameLogic } from '../logic/GameLogic';
 import { gridToWorld, gridToWorldCenter, worldToGap, worldToGrid } from '../coordinates';
+import { MultiplayerManager } from '../multiplayer/MultiplayerManager';
+import { RoomModal } from '../ui/RoomModal';
 import { samePosition, sameGapEdge } from '../types';
-import type { Direction, GapEdge, GridPosition, GameState, Player, Wall, WorldPosition } from '../types';
+import type { Direction, GapEdge, GridPosition, GameState, Player, RoomInfo, Wall, WorldPosition } from '../types';
 
 /**
  * Main game scene for Corridor.
- * Manages the game board, pawn rendering, wall placement, and player input.
+ * Manages the game board, pawn rendering, wall placement, player input, and multiplayer.
  */
 export default class GameScene extends Phaser.Scene {
 
@@ -47,11 +49,22 @@ export default class GameScene extends Phaser.Scene {
     /** Theme button text reference (for updating label on toggle). */
     private themeButtonText!: Phaser.GameObjects.Text;
 
+    /** Multiplayer button text reference (for updating label on connect/disconnect). */
+    private multiplayerButtonText!: Phaser.GameObjects.Text;
+
     /** Text showing the current player's remaining wall count. */
     private wallCountText!: Phaser.GameObjects.Text;
 
     /** All UI components (buttons + wall count) for theme refresh. */
     private uiComponents: { bg: Phaser.GameObjects.Graphics; text: Phaser.GameObjects.Text; drawBg: (color: number) => void }[] = [];
+
+    // --- Multiplayer ---
+
+    /** Manages Socket.IO connection and room communication. */
+    private multiplayerManager!: MultiplayerManager;
+
+    /** HTML-based modal for entering room name. */
+    private roomModal!: RoomModal;
 
     // --- Interaction state ---
 
@@ -99,12 +112,15 @@ export default class GameScene extends Phaser.Scene {
 
         this.setupGraphics();
         this.setupUI();
+        this.setupMultiplayer();
         this.setupInput();
 
         this.drawBoard();
         this.drawWalls();
         this.drawPawns();
         this.updateStatusIndicator();
+
+        this.events.on('shutdown', this.shutdown, this);
     }
 
     // =========================================================================
@@ -175,6 +191,8 @@ export default class GameScene extends Phaser.Scene {
         this.createButton(rightEdge, '↺', () => this.undoMove());
         rightEdge -= this.btnWidth + gap;
         this.themeButtonText = this.createButton(rightEdge, isDarkMode() ? '☼' : '☾', () => this.handleToggleTheme());
+        rightEdge -= this.btnWidth + gap;
+        this.multiplayerButtonText = this.createButton(rightEdge, '⚡︎', () => this.handleMultiplayerButton());
     }
 
     /**
@@ -223,6 +241,33 @@ export default class GameScene extends Phaser.Scene {
         hitZone.on('pointerout', () => drawBg(getColors().BUTTON_BG));
 
         return text;
+    }
+
+    /**
+     * Initializes multiplayer manager and room modal.
+     */
+    private setupMultiplayer(): void {
+        this.multiplayerManager = new MultiplayerManager({
+            onConnectionChange: (connected, roomInfo) => this.handleConnectionChange(connected, roomInfo),
+            onStateReceived: (state) => this.handleStateReceived(state),
+            onError: (message) => this.handleMultiplayerError(message),
+            onStateRequested: (requesterId) => this.handleStateRequested(requesterId),
+            onRoomTimeout: () => this.handleRoomTimeout(),
+        });
+
+        this.roomModal = new RoomModal({
+            onConnect: (roomName) => this.handleConnect(roomName),
+            onCancel: () => { /* Modal handles its own cleanup */ },
+        });
+    }
+
+    /**
+     * Handles cleanup when the scene is shut down.
+     * Removes the resize event listener and cleans up multiplayer.
+     */
+    private shutdown(): void {
+        this.multiplayerManager?.destroy();
+        this.roomModal?.hide();
     }
 
     /**
@@ -395,7 +440,7 @@ export default class GameScene extends Phaser.Scene {
 
         for (const wall of this.wallOptions) {
             if (!GameLogic.isValidWallPlacement(this.gameState, wall)) continue;
-            this.drawWall(g, wall, colors.WALL_PREVIEW, colors.WALL_PREVIEW_ALPHA);
+            this.drawWall(g, wall, colors.WALL_PREVIEW, GraphicsConfig.WALL_PREVIEW_ALPHA);
         }
     }
 
@@ -406,13 +451,14 @@ export default class GameScene extends Phaser.Scene {
         const g = this.pawnGraphics;
         g.clear();
 
-        this.gameState.pawns.forEach((pos, player) => {
+        for (let i = 0; i < this.gameState.pawns.length; i++) {
+            const player = i as Player;
             this.drawPawn(
-                pos,
-                player as Player,
+                this.gameState.pawns[i],
+                player,
                 this.selectedPlayer === player
             );
-        });
+        }
     }
 
     /**
@@ -449,7 +495,6 @@ export default class GameScene extends Phaser.Scene {
         // Draw direction triangle
         this.drawDirectionTriangle(g, center.x, center.y, player);
     }
-
 
     /**
      * Draws a small triangle inside the pawn pointing to the goal direction.
@@ -502,7 +547,7 @@ export default class GameScene extends Phaser.Scene {
             const center = gridToWorldCenter(move);
 
             // Draw semi-transparent circle
-            g.fillStyle(colors.VALID_MOVE, colors.VALID_MOVE_ALPHA);
+            g.fillStyle(colors.VALID_MOVE, GraphicsConfig.VALID_MOVE_ALPHA);
             g.fillCircle(center.x, center.y, GraphicsConfig.PAWN_RADIUS * GraphicsConfig.VALID_MOVE_SIZE);
 
             // Draw ring outline
@@ -603,9 +648,7 @@ export default class GameScene extends Phaser.Scene {
                 // Try to place this wall
                 const newState = GameLogic.placeWall(this.gameState, wall);
                 if (newState) {
-                    this.moveHistory.push(this.gameState);
-                    this.gameState = newState;
-                    this.refreshAfterStateChange();
+                    this.applyNewState(newState);
                     return true;
                 }
             }
@@ -675,9 +718,7 @@ export default class GameScene extends Phaser.Scene {
         const newState = GameLogic.makeMove(this.gameState, target);
 
         if (newState) {
-            this.moveHistory.push(this.gameState);
-            this.gameState = newState;
-            this.refreshAfterStateChange();
+            this.applyNewState(newState);
         } else {
             this.deselectPawn();
         }
@@ -742,6 +783,17 @@ export default class GameScene extends Phaser.Scene {
     }
 
     /**
+     * Applies a new game state: saves the current state to history,
+     * updates the game state, refreshes visuals, and broadcasts to other players.
+     */
+    private applyNewState(newState: GameState): void {
+        this.moveHistory.push(this.gameState);
+        this.gameState = newState;
+        this.refreshAfterStateChange();
+        this.broadcastState();
+    }
+
+    /**
      * Refreshes all visuals after a game state change.
      * Cancels any in-progress interactions and redraws the board.
      */
@@ -777,26 +829,168 @@ export default class GameScene extends Phaser.Scene {
             comp.text.setColor(colors.UI_TEXT_STR);
         }
 
+        // Refresh modal styles if open
+        this.roomModal.refresh();
+
         // Redraw board and game elements
         this.redrawAll();
     }
 
     /**
      * Resets the game to initial state.
+     * Broadcasts the reset to other players if connected.
      */
     private resetGame(playerCount: 2 | 4): void {
         this.gameState = GameLogic.getInitialState(playerCount);
         this.moveHistory = [];
         this.refreshAfterStateChange();
+        this.broadcastState();
     }
 
     /**
      * Undoes the last move by restoring the previous game state.
+     * Broadcasts the undo to other players if connected.
      */
     private undoMove(): void {
         if (this.moveHistory.length === 0) return;
 
         this.gameState = this.moveHistory.pop()!;
         this.refreshAfterStateChange();
+        this.broadcastState();
+    }
+
+    // =========================================================================
+    // Multiplayer Methods
+    // =========================================================================
+
+    /**
+     * Handles the multiplayer button click.
+     * If connected, disconnects. If not connected, shows the room modal.
+     */
+    private handleMultiplayerButton(): void {
+        if (this.multiplayerManager.isConnected()) {
+            this.handleDisconnect();
+        } else {
+            this.handleShowConnectModal();
+        }
+    }
+
+    /**
+     * Shows the room name modal.
+     */
+    private handleShowConnectModal(): void {
+        this.roomModal.show();
+    }
+
+    /**
+     * Handles connect button click from modal.
+     */
+    private async handleConnect(roomName: string): Promise<void> {
+        // Hide modal immediately to prevent double-click race conditions
+        this.roomModal.hide();
+        try {
+            await this.multiplayerManager.connect(roomName);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Connection failed';
+            // Re-show modal with error on failure
+            this.roomModal.show();
+            this.roomModal.showError(message);
+        }
+    }
+
+    /**
+     * Handles disconnect button click.
+     */
+    private handleDisconnect(): void {
+        this.multiplayerManager.disconnect();
+    }
+
+    /**
+     * Handles connection status changes.
+     * Updates the multiplayer button label.
+     */
+    private handleConnectionChange(connected: boolean, _roomInfo?: RoomInfo): void {
+        this.multiplayerButtonText.setText(connected ? '⊘' : '⚡︎');
+    }
+
+    /**
+     * Checks if a value has the expected shape of a GameState.
+     */
+    private isGameState(value: unknown): value is GameState {
+        return (
+            value !== null &&
+            typeof value === 'object' &&
+            'pawns' in value &&
+            'walls' in value &&
+            'wallCounts' in value &&
+            'currentPlayer' in value
+        );
+    }
+
+    /**
+     * Checks if a value has the expected shape of a multiplayer state bundle
+     * (gameState + moveHistory).
+     */
+    private isMultiplayerState(value: unknown): value is { gameState: GameState; moveHistory: GameState[] } {
+        if (value === null || typeof value !== 'object') return false;
+        const obj = value as Record<string, unknown>;
+        return (
+            this.isGameState(obj.gameState) &&
+            Array.isArray(obj.moveHistory)
+        );
+    }
+
+    /**
+     * Handles receiving game state from another player.
+     * Restores both the current game state and the full move history,
+     * so any connected player can undo any move.
+     */
+    private handleStateReceived(state: unknown): void {
+        if (this.isMultiplayerState(state)) {
+            this.gameState = state.gameState;
+            this.moveHistory = state.moveHistory;
+            this.refreshAfterStateChange();
+        }
+    }
+
+    /**
+     * Handles multiplayer errors.
+     */
+    private handleMultiplayerError(message: string): void {
+        console.error('Multiplayer error:', message);
+    }
+
+    /**
+     * Handles when another player requests the current state.
+     * Sends the current game state and move history to the requesting player.
+     */
+    private handleStateRequested(requesterId: string): void {
+        if (this.multiplayerManager.isConnected()) {
+            this.multiplayerManager.sendStateTo(requesterId, {
+                gameState: this.gameState,
+                moveHistory: this.moveHistory,
+            });
+        }
+    }
+
+    /**
+     * Handles when the room times out due to inactivity.
+     * Updates the button to reflect disconnected state.
+     */
+    private handleRoomTimeout(): void {
+        console.log('Room timed out due to inactivity');
+        this.multiplayerButtonText.setText('⚡︎');
+    }
+
+    /**
+     * Broadcasts the current game state and move history to other players.
+     */
+    private broadcastState(): void {
+        if (this.multiplayerManager.isConnected()) {
+            this.multiplayerManager.broadcastState({
+                gameState: this.gameState,
+                moveHistory: this.moveHistory,
+            });
+        }
     }
 }
