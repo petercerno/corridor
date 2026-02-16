@@ -324,7 +324,7 @@ const getServerUrl = (): string => {
     if (hostname === 'localhost' || hostname === '127.0.0.1') {
         return ''; // Empty string = same origin (works for both dev and local prod)
     }
-    return ''; // TODO: Set production server URL when deploying
+    return 'https://corridor-428046244270.europe-west1.run.app';
 };
 
 /**
