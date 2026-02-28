@@ -1,0 +1,39 @@
+<svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="200" height="200" rx="40" fill="#f5f7fa"/>
+
+  <!-- 4x4 grid of squares (simplified board) -->
+  <g>
+    <!-- Row 0 -->
+    <rect x="22" y="22" width="32" height="32" rx="4" fill="#bbbbbb"/>
+    <rect x="63" y="22" width="32" height="32" rx="4" fill="#aaaaaa"/>
+    <rect x="104" y="22" width="32" height="32" rx="4" fill="#bbbbbb"/>
+    <rect x="145" y="22" width="32" height="32" rx="4" fill="#aaaaaa"/>
+    <!-- Row 1 -->
+    <rect x="22" y="63" width="32" height="32" rx="4" fill="#aaaaaa"/>
+    <rect x="63" y="63" width="32" height="32" rx="4" fill="#bbbbbb"/>
+    <rect x="104" y="63" width="32" height="32" rx="4" fill="#aaaaaa"/>
+    <rect x="145" y="63" width="32" height="32" rx="4" fill="#bbbbbb"/>
+    <!-- Row 2 -->
+    <rect x="22" y="104" width="32" height="32" rx="4" fill="#bbbbbb"/>
+    <rect x="63" y="104" width="32" height="32" rx="4" fill="#aaaaaa"/>
+    <rect x="104" y="104" width="32" height="32" rx="4" fill="#bbbbbb"/>
+    <rect x="145" y="104" width="32" height="32" rx="4" fill="#aaaaaa"/>
+    <!-- Row 3 -->
+    <rect x="22" y="145" width="32" height="32" rx="4" fill="#aaaaaa"/>
+    <rect x="63" y="145" width="32" height="32" rx="4" fill="#bbbbbb"/>
+    <rect x="104" y="145" width="32" height="32" rx="4" fill="#bbbbbb"/>
+    <rect x="145" y="145" width="32" height="32" rx="4" fill="#aaaaaa"/>
+  </g>
+
+  <!-- Walls -->
+  <!-- Horizontal wall between row 1 and row 2, spanning columns 0-1 -->
+  <rect x="22" y="97" width="73" height="5" rx="2" fill="#d03030"/>
+  <!-- Vertical wall between col 2 and col 3, spanning rows 0-1 -->
+  <rect x="138" y="22" width="5" height="73" rx="2" fill="#3030d0"/>
+
+  <!-- Player 0 pawn (red) at row 3, col 1 -->
+  <circle cx="79" cy="161" r="12" fill="#d03030" stroke="#8b0000" stroke-width="2"/>
+  <!-- Player 1 pawn (blue) at row 0, col 2 -->
+  <circle cx="120" cy="38" r="12" fill="#3030d0" stroke="#00008b" stroke-width="2"/>
+</svg>
