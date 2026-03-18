@@ -46,20 +46,15 @@ function worldToBoard(pos: WorldPosition): { row: number; col: number; cellX: nu
 
 /**
  * Converts world (pixel) coordinates to grid coordinates.
- * Returns null if the click is outside the board or in a gap.
+ * Returns null if the click is outside the board or in a gap hit zone.
  */
 export function worldToGrid(pos: WorldPosition): GridPosition | null {
     const board = worldToBoard(pos);
     if (!board) return null;
 
-    // Click must be within a cell (not in the gap)
-    if (board.cellX > BoardConfig.CELL_SIZE || board.cellY > BoardConfig.CELL_SIZE) {
-        return null;
-    }
-
-    // Validate grid bounds
-    if (board.row < 0 || board.row >= BoardConfig.GRID_SIZE ||
-        board.col < 0 || board.col >= BoardConfig.GRID_SIZE) {
+    // Click must be within the cell hit zone (between LOW and HIGH boundaries)
+    if (board.cellX < BoardConfig.HIT_BOUNDARY_LOW || board.cellX > BoardConfig.HIT_BOUNDARY_HIGH ||
+        board.cellY < BoardConfig.HIT_BOUNDARY_LOW || board.cellY > BoardConfig.HIT_BOUNDARY_HIGH) {
         return null;
     }
 
@@ -70,30 +65,50 @@ export function worldToGrid(pos: WorldPosition): GridPosition | null {
  * Converts world (pixel) coordinates to a gap edge between two adjacent cells.
  * Returns null if the click is not in a gap or is in a corner intersection.
  *
- * We detect clicks in the gap regions between cells:
- *   - Horizontal gap (between rows): cellY > CELL_SIZE in a cell step
- *   - Vertical gap (between columns): cellX > CELL_SIZE in a cell step
- *   - Corner intersection (both): ignored (shared by 4 cells)
+ * The gap hit zone is centered on the physical gap and leaks equally into
+ * both adjacent squares. Within a cell step:
+ *   - cellLocal < HIT_BOUNDARY_LOW → belongs to the gap from the previous cell
+ *   - cellLocal > HIT_BOUNDARY_HIGH → belongs to the gap after the current cell
+ *   - Corner intersection (both axes in gap zone): ignored
  */
 export function worldToGap(pos: WorldPosition): GapEdge | null {
     const board = worldToBoard(pos);
     if (!board) return null;
 
-    const inHGap = board.cellY > BoardConfig.CELL_SIZE;
-    const inVGap = board.cellX > BoardConfig.CELL_SIZE;
+    const inHGapAbove = board.cellY < BoardConfig.HIT_BOUNDARY_LOW;
+    const inHGapBelow = board.cellY > BoardConfig.HIT_BOUNDARY_HIGH;
+    const inVGapLeft = board.cellX < BoardConfig.HIT_BOUNDARY_LOW;
+    const inVGapRight = board.cellX > BoardConfig.HIT_BOUNDARY_HIGH;
+
+    const inHGap = inHGapAbove || inHGapBelow;
+    const inVGap = inVGapLeft || inVGapRight;
 
     if (!inHGap && !inVGap) return null; // Inside a cell
-    if (inHGap && inVGap) return null;    // Corner intersection (shared by 4 cells)
+    if (inHGap && inVGap) return null;   // Corner intersection
 
     if (inHGap) {
-        // Horizontal gap between row and row+1
-        if (board.row + 1 < BoardConfig.GRID_SIZE) {
-            return { from: { row: board.row, col: board.col }, to: { row: board.row + 1, col: board.col } };
+        if (inHGapBelow) {
+            // Gap between row and row+1
+            if (board.row + 1 < BoardConfig.GRID_SIZE) {
+                return { from: { row: board.row, col: board.col }, to: { row: board.row + 1, col: board.col } };
+            }
+        } else {
+            // Gap between row-1 and row (hit zone leaks into current cell from above)
+            if (board.row > 0) {
+                return { from: { row: board.row - 1, col: board.col }, to: { row: board.row, col: board.col } };
+            }
         }
     } else {
-        // Vertical gap between col and col+1
-        if (board.col + 1 < BoardConfig.GRID_SIZE) {
-            return { from: { row: board.row, col: board.col }, to: { row: board.row, col: board.col + 1 } };
+        if (inVGapRight) {
+            // Gap between col and col+1
+            if (board.col + 1 < BoardConfig.GRID_SIZE) {
+                return { from: { row: board.row, col: board.col }, to: { row: board.row, col: board.col + 1 } };
+            }
+        } else {
+            // Gap between col-1 and col (hit zone leaks into current cell from left)
+            if (board.col > 0) {
+                return { from: { row: board.row, col: board.col - 1 }, to: { row: board.row, col: board.col } };
+            }
         }
     }
 

@@ -14,6 +14,10 @@ export const BoardConfig = {
     UI_HEIGHT: 150,
     /** Computed cell step (cell + gap). */
     get CELL_STEP() { return this.CELL_SIZE + this.GAP_SIZE; },
+    /** Lower hit-test boundary: cellX/cellY below this belongs to the previous gap. */
+    get HIT_BOUNDARY_LOW() { return (this.CELL_SIZE - this.GAP_SIZE) / 4; },
+    /** Upper hit-test boundary: cellX/cellY above this belongs to the current gap. */
+    get HIT_BOUNDARY_HIGH() { return this.CELL_SIZE - this.HIT_BOUNDARY_LOW; },
     /** Computed board size in pixels (without margins). */
     get BOARD_SIZE() { return this.GRID_SIZE * this.CELL_SIZE + (this.GRID_SIZE - 1) * this.GAP_SIZE; },
     /** Computed total canvas width. */
